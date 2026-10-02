@@ -1,0 +1,54 @@
+Cadence — scheduling engine test run
+================================================================================
+Date       : 2026-10-02 20:07 UTC
+Toolchain  : Swift version 6.0.3 (swift-6.0.3-RELEASE)
+Platform   : Linux (Debian), no Xcode — this is the portable CadenceCore module
+Command    : swift test
+================================================================================
+
+RecurrenceRuleTests.testDailyNextOccurrenceKeepsTimeOfDay
+RecurrenceRuleTests.testEveryOtherWeekSkipsAWeek
+RecurrenceRuleTests.testMonthlyNextOccurrence
+RecurrenceRuleTests.testSeriesEndDateStopsRecurrence
+RecurrenceRuleTests.testWeekdayMaskRoundTrips
+RecurrenceRuleTests.testWeeklyOnSpecificWeekdaysJumpsToTheNextSelectedDay
+SchedulingEngineTests.testAddisAbabaAndRiyadhHaveNoDSTSurprises
+SchedulingEngineTests.testBlocksNeverOverlapBusyTime
+SchedulingEngineTests.testBufferIsKeptBetweenBlocks
+SchedulingEngineTests.testDSTTransitionDoesNotDistortBlocks
+SchedulingEngineTests.testDailyCapIsSoftRatherThanLosingWork
+SchedulingEngineTests.testDailyCapSpreadsWorkOverSeveralDays
+SchedulingEngineTests.testDeadlineOutranksHigherPriority
+SchedulingEngineTests.testLongTaskIsSplitAcrossDays
+SchedulingEngineTests.testMergeUnionsOverlappingIntervals
+SchedulingEngineTests.testNoWorkingHoursMeansNoPlanAndAClearReason
+SchedulingEngineTests.testNonSplittableTaskTakesOneContiguousSlot
+SchedulingEngineTests.testNotBeforeIsRespected
+SchedulingEngineTests.testPinnedBlocksAreReportedAndNeverMoved
+SchedulingEngineTests.testPlanIsIdenticalRegardlessOfInputOrder
+SchedulingEngineTests.testPriorityOrderingWhenEdfDisabled
+SchedulingEngineTests.testSimpleFitLandsInTheEarliestGap
+SchedulingEngineTests.testSubtractRemovesBusyOverlap
+SchedulingEngineTests.testTasksBeyondHorizonAreNotSilentlyDropped
+SchedulingEngineTests.testUnschedulableTaskReportsShortfallAndReason
+SchedulingEngineTests.testWorkingHoursMaterialisation
+WorkingHoursTests.testDefaultWeekHasTheThreeWindowShapes
+WorkingHoursTests.testEveryDayHasTheEveningBlock
+WorkingHoursTests.testFridayToMondayIsCatchUpTime
+WorkingHoursTests.testNoWorkIsEverPlannedOutsideTheWindows
+WorkingHoursTests.testOfficeDaysAreTuesdayWednesdayThursday
+WorkingHoursTests.testSaturdayMaterialisesCatchUpAndEvening
+WorkingHoursTests.testSummaryMentionsTheThreeShapes
+WorkingHoursTests.testTuesdayMaterialisesThreeWindowsIncludingEvening
+
+	 Executed 34 tests, with 0 failures (0 unexpected) in 0.025 (0.025) seconds
+
+================================================================================
+Proves: placement, deadline-first ordering, splitting, buffer/cap relaxation,
+pin immutability, determinism across 25 shuffled inputs, DST + timezone handling,
+and the working-hour rules of the owner's actual week.
+
+Does NOT prove: SwiftUI / SwiftData / WidgetKit. Those frameworks exist only on
+Apple platforms — that layer is compiled by the macOS job in
+.github/workflows/ci.yml (or by Xcode on a Mac).
+================================================================================

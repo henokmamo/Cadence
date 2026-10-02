@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cadence — interactive prototype</title>
+<style>
+  :root{
+    --accent:#5A6CF3;
+    --accent-dark:#4553c9;
+    --pinned:#8E6CF3;
+    --imported:#9AA0A6;
+    --bg:#f2f2f7;
+    --card:#ffffff;
+    --text:#111114;
+    --muted:#6b7280;
+    --danger:#E5484D;
+    --warn:#E5A100;
+    --ok:#2FA36B;
+    --hour:64px;
+    --radius:14px;
+    --tabbar:58px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#000; --card:#1c1c1e; --text:#f5f5f7; --muted:#9ca3af; }
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:#0b0c10;color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .page{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+    background:radial-gradient(1200px 600px at 50% -10%, #26264a 0%, #0b0c10 60%);padding:28px 14px 60px;}
+  .lede{max-width:760px;text-align:center;color:#c9cbe0;margin:0 0 18px;}
+  .lede h1{font-size:20px;margin:0 0 6px;color:#fff;letter-spacing:-.01em;}
+  .lede p{margin:0;font-size:13px;line-height:1.55;color:#a5a8c2;}
+  .lede b{color:#fff;}
+  .stage{display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap;justify-content:center;width:100%;}
+
+  /* ---------- phone ---------- */
+  .phone{width:392px;height:812px;background:#000;border-radius:44px;padding:11px;
+    box-shadow:0 40px 80px rgba(0,0,0,.55), 0 0 0 2px #2a2a33 inset;position:relative;flex:0 0 auto;}
+  .screen{width:100%;height:100%;background:var(--bg);border-radius:34px;overflow:hidden;
+    display:flex;flex-direction:column;position:relative;}
+  .notch{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:118px;height:26px;
+    background:#000;border-radius:0 0 16px 16px;z-index:40;}
+  .statusbar{height:44px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 20px;font-size:12px;font-weight:600;color:var(--text);flex:0 0 auto;z-index:30;}
+  .statusbar .right{display:flex;gap:5px;align-items:center;opacity:.85;}
+
+  .navbar{height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;
+    flex:0 0 auto;border-bottom:.5px solid rgba(120,120,128,.22);}
+  .navbar h2{font-size:17px;margin:0;font-weight:600;letter-spacing:-.01em;}
+  .navbtn{border:0;background:transparent;color:var(--accent);font-size:15px;font-weight:500;
+    padding:6px 6px;border-radius:8px;cursor:pointer;}
+  .navbtn:active{background:rgba(120,120,128,.16);}
+  .navbtn.strong{font-weight:600;}
+
+  .body{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;padding:14px 16px 8px;scrollbar-width:none;}
+  .body::-webkit-scrollbar{display:none;}
+
+  .tabbar{height:var(--tabbar);flex:0 0 auto;display:grid;grid-template-columns:repeat(4,1fr);
+    border-top:.5px solid rgba(120,120,128,.22);background:rgba(249,249,251,.94);backdrop-filter:blur(14px);}
+  @media (prefers-color-scheme: dark){ .tabbar{background:rgba(28,28,30,.94);} }
+  .tabbar button{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:3px;font-size:10px;color:var(--muted);cursor:pointer;padding-top:7px;}
+  .tabbar button .ico{font-size:18px;line-height:1;}
+  .tabbar button.active{color:var(--accent);}
+
+  /* ---------- cards & rows ---------- */
+  .card{background:var(--card);border-radius:var(--radius);padding:14px;
+    box-shadow:0 1px 2px rgba(0,0,0,.05);}
+  .row{display:flex;gap:10px;align-items:flex-start;}
+  .h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:2px 0 2px;}
+  .sub{font-size:13px;color:var(--muted);}
+  .section-title{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;
+    letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px;}
+  .section-title .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.7;}
+  .chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 7px;border-radius:20px;
+    background:rgba(120,120,128,.14);color:var(--muted);white-space:nowrap;}
+  .chip.accent{background:rgba(90,108,243,.15);color:var(--accent);}
+  .chip.pin{background:rgba(142,108,243,.16);color:var(--pinned);}
+  .chip.danger{background:rgba(229,72,77,.14);color:var(--danger);}
+  .chip.warn{background:rgba(229,161,0,.16);color:#a87400;}
+  .chip.ok{background:rgba(47,163,107,.15);color:var(--ok);}
+
+  .check{width:24px;height:24px;border-radius:50%;border:1.8px solid rgba(120,120,128,.5);
+    flex:0 0 auto;display:grid;place-items:center;cursor:pointer;background:transparent;margin-top:1px;}
+  .check.done{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .task{display:flex;gap:10px;padding:11px 2px;border-bottom:.5px solid rgba(120,120,128,.18);cursor:pointer;}
+  .task:last-child{border-bottom:0;}
+  .task.done .t-title{text-decoration:line-through;color:var(--muted);}
+  .t-title{font-size:15px;font-weight:500;line-height:1.3;}
+  .t-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;}
+
+  /* ---------- timeline ---------- */
+  .tl{position:relative;margin-top:4px;}
+  .tl-row{display:flex;gap:10px;align-items:flex-start;padding:7px 0;}
+  .tl-time{width:56px;flex:0 0 auto;text-align:right;font-size:12px;font-variant-numeric:tabular-nums;
+    font-weight:600;padding-top:2px;}
+  .tl-time span{display:block;font-size:11px;font-weight:400;color:var(--muted);}
+  .tl-bar{width:3px;border-radius:2px;align-self:stretch;min-height:38px;background:var(--accent);}
+  .tl-main{flex:1 1 auto;min-width:0;}
+  .tl-reason{font-size:11px;color:var(--muted);margin-top:3px;}
+  .past{opacity:.5;}
+
+  /* ---------- day grid ---------- */
+  .grid-wrap{position:relative;background:var(--card);border-radius:var(--radius);overflow:hidden;
+    box-shadow:0 1px 2px rgba(0,0,0,.05);}
+  .grid-scroll{height:430px;overflow-y:auto;position:relative;}
+  .grid-inner{position:relative;height:calc(var(--hour) * 13);}
+  .hourline{position:absolute;left:52px;right:0;height:1px;background:rgba(120,120,128,.18);}
+  .hourlabel{position:absolute;left:0;width:44px;text-align:right;font-size:10px;color:var(--muted);
+    transform:translateY(-6px);font-variant-numeric:tabular-nums;}
+  .shade{position:absolute;left:52px;right:0;background:rgba(120,120,128,.06);}
+  .block{position:absolute;left:58px;right:6px;border-radius:8px;padding:5px 7px;color:#fff;
+    overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.16);transition:transform .12s ease, box-shadow .12s;}
+  .block.auto{background:var(--accent);}
+  .block.pinned{background:var(--pinned);}
+  .block.imported{background:var(--imported);opacity:.72;cursor:default;}
+  .block .b-title{font-size:11.5px;font-weight:600;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .block .b-time{font-size:10px;opacity:.9;}
+  .block.dragging{cursor:grabbing;box-shadow:0 10px 22px rgba(0,0,0,.32);z-index:20;}
+  .nowline{position:absolute;left:52px;right:0;height:2px;background:var(--danger);z-index:10;}
+  .nowline::before{content:"";position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--danger);}
+
+  /* ---------- add bar ---------- */
+  .addbar{display:flex;gap:8px;align-items:center;background:var(--card);border-radius:999px;
+    padding:9px 12px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  .addbar input{flex:1;border:0;outline:0;background:transparent;color:var(--text);font-size:14px;}
+  .addbar button{border:0;background:var(--accent);color:#fff;border-radius:999px;width:28px;height:28px;
+    font-size:16px;line-height:1;cursor:pointer;}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 0;}
+  .chips button{border:1px solid transparent;background:rgba(120,120,128,.14);color:var(--text);
+    border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer;}
+  .chips button.on{background:rgba(90,108,243,.16);border-color:var(--accent);color:var(--accent);font-weight:600;}
+
+  /* ---------- right column: engine panel ---------- */
+  .panel{width:330px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);
+    border-radius:18px;padding:16px;color:#dfe1f2;flex:0 0 auto;backdrop-filter:blur(6px);}
+  .panel h3{margin:0 0 4px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#fff;}
+  .panel p{margin:0 0 14px;font-size:12px;line-height:1.5;color:#a9accb;}
+  .panel label{display:block;font-size:12px;margin:12px 0 4px;color:#c9cbe6;}
+  .panel input[type=range]{width:100%;accent-color:var(--accent);}
+  .panel .val{float:right;color:#fff;font-variant-numeric:tabular-nums;}
+  .panel .toggle{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:12px;color:#c9cbe6;}
+  .panel .traybox{margin-top:16px;border-top:1px solid rgba(255,255,255,.1);padding-top:12px;}
+  .panel .traybox div{font-size:12px;color:#c9cbe6;padding:6px 0;border-bottom:1px dashed rgba(255,255,255,.08);}
+  .panel .traybox div:last-child{border-bottom:0;}
+  .panel .traybox small{display:block;color:#8d90b3;font-size:11px;margin-top:2px;line-height:1.4;}
+  .panel .legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;font-size:11px;color:#a9accb;}
+  .panel .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;}
+  .btn-full{margin-top:16px;width:100%;border:0;border-radius:10px;padding:11px;font-size:13px;font-weight:600;
+    background:var(--accent);color:#fff;cursor:pointer;}
+  .btn-full.ghost{background:rgba(255,255,255,.08);color:#dfe1f2;margin-top:8px;}
+  .toastline{font-size:11.5px;color:#a9accb;margin-top:10px;min-height:16px;}
+  .foot{max-width:1080px;margin:26px auto 0;color:#8d90b3;font-size:12px;line-height:1.6;text-align:center;}
+  .foot code{background:rgba(255,255,255,.07);padding:1px 5px;border-radius:5px;color:#cfd1ea;}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="lede">
+    <h1>Cadence — interactive prototype</h1>
+    <p>A working model of the scheduling engine, not a screenshot. <b>Drag a block</b> to pin it,
+      <b>add a task</b> and watch it get placed, move the <b>time scrubber</b> on the right, or change
+      the rules and hit <b>Reschedule</b> to see the plan rebuild.</p>
+    <p style="margin-top:8px">Loaded with <b>your week</b>: office hours 10:00–18:00 (lunch 13:00–14:00 kept free)
+      and the 20:00–23:00 block for other tasks — the same defaults the app ships with.</p>
+  </div>
+
+  <div class="stage">
+    <!-- ================= phone ================= -->
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="statusbar">
+          <span id="statusTime">9:41</span>
+          <span class="right">
+            <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.3" y="5" width="3" height="6" rx="1"/><rect x="8.6" y="2.5" width="3" height="8.5" rx="1"/><rect x="12.9" y="0" width="3" height="11" rx="1"/></svg>
+            <svg width="20" height="11" viewBox="0 0 20 11" fill="none"><rect x="0.5" y="0.5" width="15" height="10" rx="3" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="10" height="7" rx="1.6" fill="currentColor"/><rect x="17" y="3.6" width="2" height="3.8" rx="1" fill="currentColor" opacity=".5"/></svg>
+          </span>
+        </div>
+
+        <div class="navbar">
+          <button class="navbtn" id="navLeft">‹</button>
+          <h2 id="navTitle">Today</h2>
+          <button class="navbtn strong" id="navRight">Reschedule</button>
+        </div>
+
+        <div class="body" id="view"></div>
+
+        <div class="tabbar" id="tabbar">
+          <button data-tab="today" class="active"><span class="ico">☀︎</span>Today</button>
+          <button data-tab="calendar"><span class="ico">▦</span>Calendar</button>
+          <button data-tab="tasks"><span class="ico">☑︎</span>Tasks</button>
+          <button data-tab="rules"><span class="ico">⚙︎</span>Rules</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= engine panel ================= -->
+    <div class="panel">
+      <h3>Engine controls</h3>
+      <p>These are the real settings the Swift app exposes in Settings → Scheduling. Every change re-runs the same algorithm.</p>
+
+      <label>Buffer between blocks <span class="val" id="vBuffer">10m</span></label>
+      <input type="range" id="sBuffer" min="0" max="30" step="5" value="10" />
+
+      <label>Longest block <span class="val" id="vMax">90m</span></label>
+      <input type="range" id="sMax" min="30" max="180" step="15" value="90" />
+
+      <label>Daily auto-planned cap <span class="val" id="vCap">4h</span></label>
+      <input type="range" id="sCap" min="60" max="480" step="30" value="300" />
+
+      <label>Simulated clock <span class="val" id="vClock">11:30</span></label>
+      <input type="range" id="sClock" min="540" max="1380" step="5" value="690" />
+
+      <div class="toggle"><input type="checkbox" id="tEdf" checked /><span>Deadlines first (EDF), then priority</span></div>
+
+      <button class="btn-full" id="btnResched">Reschedule my day</button>
+      <button class="btn-full ghost" id="btnClearPins">Unpin everything &amp; re-plan</button>
+      <div class="toastline" id="toast"></div>
+
+      <div class="traybox">
+        <h3 style="margin-bottom:8px">Unscheduled</h3>
+        <div id="tray">—</div>
+      </div>
+
+      <div class="legend">
+        <span><i style="background:var(--accent)"></i>Auto</span>
+        <span><i style="background:var(--pinned)"></i>Pinned</span>
+        <span><i style="background:var(--imported)"></i>Calendar</span>
+        <span><i style="background:var(--danger)"></i>Now</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    The prototype plans <b>today only</b>; the Swift engine plans a rolling horizon (default 14 days) and
+    additionally handles recurrence, subtasks, tags, notifications and widgets.
+    Engine source of truth: <code>Cadence/Scheduling/SchedulingEngine.swift</code> · spec: <code>SPEC.md</code>.
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================================
+   1. TIME HELPERS  (minutes-from-midnight throughout — mirrors the Swift
+      engine's "work in instants, format once" rule)
+   ========================================================================= */
+const H0 = 9 * 60;                 // the day view runs 09:00 …
+const H1 = 23 * 60;                // …to 23:00 (the evening block ends at 23:00)
+const pad = n => String(n).padStart(2, "0");
+const fmt = m => {
+  const h = Math.floor(m / 60) % 24, mm = ((m % 60) + 60) % 60;
+  const h12 = ((h + 11) % 12) + 1;
+  return h12 + ":" + pad(mm) + " " + (h < 12 ? "AM" : "PM");
+};
+const dur = m => m >= 60 ? (m % 60 ? Math.floor(m / 60) + "h " + (m % 60) + "m" : Math.floor(m / 60) + "h") : m + "m";
+
+/* =========================================================================
+   2. STATE
+   ========================================================================= */
+// The owner's week, modelled here as an office day (Tue–Thu): office hours with lunch
+// kept free, plus the 20:00–23:00 block for a different kind of task.
+const windows = [
+  { s: 10 * 60, e: 13 * 60 },
+  { s: 14 * 60, e: 18 * 60 },
+  { s: 20 * 60, e: 23 * 60 }
+];
+const busy = [                                                            // imported from iOS Calendar
+  { id: "ev1", title: "Team standup", s: 10 * 60, e: 10 * 60 + 30, origin: "imported" },
+  { id: "ev2", title: "Design review", s: 15 * 60, e: 16 * 60, origin: "imported" }
+];
+
+let tasks = [
+  { id: "t1", title: "Write the Q4 strategy memo", estimate: 180, priority: 3, deadline: 17 * 60 + 30, hard: true,
+    list: "Work", done: false, blocks: [], pinned: false, anytime: false, split: true },
+  { id: "t2", title: "Send September invoices", estimate: 45, priority: 2, deadline: 18 * 60, hard: true,
+    list: "Work", done: false, blocks: [], pinned: false, anytime: false, split: true },
+  { id: "t3", title: "Review PRs", estimate: 45, priority: 2, deadline: null, hard: false,
+    list: "Work", done: false, blocks: [], pinned: false, anytime: false, split: true },
+  { id: "t4", title: "Prep 1:1 agenda", estimate: 30, priority: 2, deadline: 15 * 60, hard: true,
+    list: "Work", done: false, blocks: [], pinned: false, anytime: false, split: true },
+  { id: "t9", title: "Evening: side-project landing page", estimate: 120, priority: 2, deadline: 22 * 60 + 30, hard: true,
+    list: "Launch", done: false, blocks: [], pinned: false, anytime: false, split: true },
+  { id: "t5", title: "Update onboarding doc", estimate: 60, priority: 1, deadline: null, hard: false,
+    list: "Work", done: false, blocks: [], pinned: false, anytime: true, split: true },
+  { id: "t6", title: "Call the accountant", estimate: 30, priority: 3, deadline: 12 * 60, hard: false,
+    list: "Work", done: false, blocks: [], pinned: false, anytime: false, split: false },
+  { id: "t7", title: "Draft launch email", estimate: 90, priority: 3, deadline: 17 * 60 + 30, hard: true,
+    list: "Launch", done: false, blocks: [], pinned: false, anytime: false, split: true },
+  { id: "t8", title: "Fix the wobbly bookshelf", estimate: 60, priority: 1, deadline: null, hard: false,
+    list: "Personal", done: false, blocks: [], pinned: false, anytime: true, split: true }
+];
+
+const rules = { buffer: 10, maxChunk: 90, minChunk: 15, maxChunks: 3, cap: 240, edf: true };
+let clock = 11 * 60 + 30;           // 11:30 — simulated "now"
+let tab = "today";
+let addEstimate = 30;
+let drag = null;
+let lastReasons = {};
+
+/* =========================================================================
+   3. THE ENGINE  — "EDF-first, earliest-fit, split-aware"
+      Mirrors SchedulingEngine.swift:
+        free = windows − (imported ∪ pinned ∪ completed-past)
+        order = deadline → priority → age
+        three passes per slot: comfortable → tight → cap-relaxed
+      Keep this function pure: it is the prototype's whole point.
+   ========================================================================= */
+function subtract(busyList, freeList) {
+  const busySorted = busyList.slice().sort((a, b) => a.s - b.s);
+  let free = freeList.map(w => ({ s: w.s, e: w.e }));
+  for (const b of busySorted) {
+    const next = [];
+    for (const f of free) {
+      if (b.e <= f.s || b.s >= f.e) { next.push(f); continue; }
+      if (f.s < b.s) next.push({ s: f.s, e: b.s });
+      if (b.e < f.e) next.push({ s: b.e, e: f.e });
+    }
+    free = next;
+  }
+  return free.filter(f => f.e > f.s).sort((a, b) => a.s - b.s);
+}
+
+function plan() {
+  // --- what is already fixed: user pins stay, everything else is re-decided ----
+  const pinned = [];
+  for (const t of tasks) {
+    t.blocks = t.blocks.filter(b => b.pinned || t.done);      // keep pins + completed work
+    for (const b of t.blocks) pinned.push({ s: b.s, e: b.e });
+  }
+
+  const imported = busy.map(b => ({ s: b.s, e: b.e }));
+  let free = subtract(imported.concat(pinned), windows.map(w => ({ s: w.s, e: w.e })));
+
+  // --- order: deadline first (EDF), then priority, then a stable tiebreak ----
+  const ordered = tasks
+    .filter(t => !t.done && !t.anytime)
+    .slice()
+    .sort((a, b) => {
+      if (rules.edf) {
+        const ad = a.deadline, bd = b.deadline;
+        if ((ad === null) !== (bd === null)) return ad === null ? 1 : -1;
+        if (ad !== null && bd !== null && ad !== bd) return ad - bd;
+      }
+      if (a.priority !== b.priority) return b.priority - a.priority;
+      return a.id < b.id ? -1 : 1;
+    });
+
+  const reasons = {};
+  let autoMinutesToday = 0;          // the soft daily cap is measured in auto-placed minutes
+
+  for (const t of ordered) {
+    const pinnedMinutes = t.blocks.reduce((sum, b) => sum + (b.e - b.s), 0);
+    let remaining = Math.max(0, t.estimate - pinnedMinutes);
+    let chunks = 0;
+    const budget = t.split ? rules.maxChunks : 1;
+    const placed = t.blocks.slice();
+    const relaxations = [];
+
+    while (remaining > 0 && chunks < budget) {
+      const desired = Math.min(remaining, rules.maxChunk);
+      const floor = Math.min(rules.minChunk, desired);
+      let match = null;
+
+      for (let pass = 1; pass <= 3 && !match; pass++) {
+        // Pass 1 = earliest full-size chunk. Relaxed passes = roomiest gap available,
+        // so a split task gets the biggest holes in the day rather than a sliver.
+        let best = null;
+        let bestCaveats = [];
+        for (let i = 0; i < free.length; i++) {
+          const f = free[i];
+          const available = f.e - f.s;
+          if (available < floor) continue;
+
+          // Hard deadlines bound the slot; a task that cannot split must fit whole.
+          let limit = f.e;
+          if (t.hard && t.deadline !== null) limit = Math.min(limit, t.deadline);
+          const usable = limit - f.s;
+          if (usable < floor) continue;
+          if (!t.split && usable < desired) continue;
+
+          let minutes = Math.min(desired, usable);
+          const caveats = [];
+
+          if (pass === 1) {
+            if (minutes < desired) continue;                          // full chunk or nothing
+            if (f.s + minutes + rules.buffer > f.e) continue;         // keep the trailing buffer
+            if (autoMinutesToday + minutes > rules.cap) continue;      // soft daily cap
+          }
+          if (pass === 2) {
+            if (autoMinutesToday + minutes > rules.cap) continue;
+          }
+          if (pass === 3) {
+            if (autoMinutesToday + minutes > rules.cap) caveats.push("daily cap relaxed");
+            if (f.s + minutes + rules.buffer > f.e) caveats.push("no buffer");
+          }
+
+          if (pass === 1) { best = { f, s: f.s, minutes, i }; break; }        // earliest wins
+          if (!best || minutes > best.minutes) { best = { f, s: f.s, minutes, i }; bestCaveats = caveats; }
+        }
+        if (best) {
+          relaxations.push(...bestCaveats);
+          if (best.minutes < desired) relaxations.push("tight fit");
+          match = best;
+        }
+      }
+
+      if (!match) break;
+
+      const block = { id: "b" + Math.random().toString(36).slice(2, 9), s: match.s, e: match.s + match.minutes,
+                      origin: "auto", pinned: false };
+      placed.push(block);
+      autoMinutesToday += match.minutes;
+
+      // consume the slot: split the free interval, leaving the buffer clear behind us
+      const resume = block.e + rules.buffer;
+      const rest = [];
+      free.forEach((f, idx) => {
+        if (idx !== match.i) { rest.push(f); return; }
+        if (f.s < block.s) rest.push({ s: f.s, e: block.s });
+        if (resume < f.e) rest.push({ s: resume, e: f.e });
+      });
+      free = rest.filter(f => f.e - f.s >= rules.minChunk).sort((a, b) => a.s - b.s);
+
+      remaining -= match.minutes;
+      chunks += 1;
+    }
+
+    t.blocks = placed.sort((a, b) => a.s - b.s);
+    const placedMinutes = placed.reduce((sum, b) => sum + (b.e - b.s), 0);
+    const caveat = relaxations.length ? " (" + [...new Set(relaxations)].join(", ") + ")" : "";
+    const autoPlaced = placedMinutes - pinnedMinutes;
+
+    if (placed.length === 0) {
+      const longest = free.reduce((m, f) => Math.max(m, f.e - f.s), 0);
+      if (free.length === 0) reasons[t.id] = "No open time left in your working hours today.";
+      else if (longest < Math.min(rules.minChunk, t.estimate))
+        reasons[t.id] = "No free gap big enough — the longest is " + dur(longest) + ".";
+      else reasons[t.id] = "Couldn't fit " + dur(t.estimate) + " before your other commitments." + caveat;
+    } else if (remaining > 0) {
+      reasons[t.id] = "Placed " + dur(placedMinutes) + "; " + dur(remaining) + " doesn't fit" +
+        (t.deadline !== null ? " before " + fmt(t.deadline) : "") + "." + caveat;
+    } else if (t.pinned && autoPlaced === 0) {
+      reasons[t.id] = "Pinned by you at " + fmt(placed[0].s) + " — the scheduler plans around it.";
+    } else if (placed.length > 1) {
+      reasons[t.id] = "Split into " + placed.length + " blocks to fit around your day." + caveat;
+    } else {
+      reasons[t.id] = "Earliest open " + dur(placedMinutes) + " slot that respects your buffers." + caveat;
+    }
+  }
+
+  for (const t of tasks) {
+    if (!reasons[t.id]) {
+      reasons[t.id] = t.done ? "Completed — the time it held was handed back to your day."
+                             : "Anytime — deliberately kept out of the plan.";
+    }
+  }
+  lastReasons = reasons;
+}
+
+/* =========================================================================
+   4. RENDERING
+   ========================================================================= */
+const view = document.getElementById("view");
+const navTitle = document.getElementById("navTitle");
+
+function render() {
+  navTitle.textContent = tab === "today" ? "Today" : tab === "calendar" ? "Calendar" : tab === "tasks" ? "Tasks" : "Rules";
+  document.querySelectorAll("#tabbar button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  document.getElementById("navRight").style.visibility = tab === "rules" ? "hidden" : "visible";
+  document.getElementById("navLeft").style.visibility = tab === "today" ? "hidden" : "visible";
+  view.innerHTML = tab === "today" ? todayHTML() : tab === "calendar" ? calendarHTML()
+                 : tab === "tasks" ? tasksHTML() : rulesHTML();
+  if (tab === "calendar") wireGrid();
+  wireCommon();
+  renderPanel();
+}
+
+/* ---------- Today ---------- */
+function currentBlock() {
+  for (const t of tasks) for (const b of t.blocks) if (b.s <= clock && clock < b.e) return { task: t, block: b };
+  return null;
+}
+function nextBlock() {
+  let best = null;
+  for (const t of tasks) for (const b of t.blocks) {
+    if (b.s > clock && (!best || b.s < best.block.s)) best = { task: t, block: b };
+  }
+  return best;
+}
+function plannedMinutes() {
+  return tasks.reduce((sum, t) => (t.anytime ? sum : sum + t.blocks.reduce((s, b) => s + (b.e - b.s), 0)), 0);
+}
+function freeMinutes() {
+  let free = subtract(busy.map(b => ({ s: b.s, e: b.e }))
+      .concat(tasks.flatMap(t => t.blocks.map(b => ({ s: b.s, e: b.e })))),
+      [{ s: Math.max(clock, H0), e: H1 }]);
+  return free.reduce((s, f) => s + (f.e - f.s), 0);
+}
+
+function todayHTML() {
+  const cur = currentBlock(), next = nextBlock();
+  const done = tasks.filter(t => t.done).length;
+
+  const upcoming = nextBlock();
+  let html = '<div class="h1">Today</div><div class="sub">'
+    + dur(plannedMinutes()) + " planned · " + dur(freeMinutes()) + " free"
+    + (upcoming ? " · next " + fmt(upcoming.block.s) : "") + "</div>";
+
+  if (cur) {
+    const pct = Math.round(((clock - cur.block.s) / (cur.block.e - cur.block.s)) * 100);
+    html += `<div class="section-title"><span class="dot" style="color:var(--accent)"></span>Happening now</div>
+      <div class="card">
+        <div class="row" style="align-items:center">
+          <div style="width:52px;height:52px;flex:0 0 auto;border-radius:50%;
+            background:conic-gradient(var(--accent) ${pct * 3.6}deg, rgba(120,120,128,.2) 0);
+            display:grid;place-items:center">
+            <div style="width:38px;height:38px;border-radius:50%;background:var(--card);display:grid;place-items:center;
+              font-size:10px;font-weight:600">${Math.max(1, cur.block.e - clock)}m<br/>left</div>
+          </div>
+          <div style="min-width:0">
+            <div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.04em">IN PROGRESS</div>
+            <div style="font-size:16px;font-weight:600;line-height:1.25">${esc(cur.task.title)}</div>
+            <div class="sub" style="margin-top:2px">${fmt(cur.block.s)} – ${fmt(cur.block.e)} · ${dur(cur.block.e - cur.block.s)}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="navbtn strong" style="background:var(--accent);color:#fff;flex:1;text-align:center" data-action="complete-now">Complete</button>
+          <button class="navbtn" style="background:rgba(120,120,128,.16);flex:0 0 auto" data-action="snooze-now">Snooze 15m</button>
+        </div>
+      </div>`;
+  } else if (next) {
+    html += `<div class="section-title"><span class="dot" style="color:var(--accent)"></span>Up next</div>
+      <div class="card"><div class="row" style="align-items:center">
+        <div style="font-size:20px">→</div>
+        <div><div style="font-weight:600">${esc(next.task.title)}</div>
+        <div class="sub">${fmt(next.block.s)} · ${rel(next.block.s - clock)}</div></div>
+      </div></div>`;
+  } else {
+    html += `<div class="card" style="margin-top:14px;text-align:center">
+      <div style="font-size:22px">✓</div><div style="font-weight:600;margin-top:4px">Nothing scheduled</div>
+      <div class="sub">A clean slate — add something below.</div></div>`;
+  }
+
+  // at risk
+  const atRisk = tasks.filter(t => !t.done && !t.anytime && t.deadline !== null &&
+    t.blocks.reduce((s, b) => s + (b.e - b.s), 0) < t.estimate && t.deadline > clock);
+  if (atRisk.length) {
+    html += `<div class="section-title"><span class="dot" style="color:var(--warn)"></span>Won't fit</div><div class="card">`;
+    for (const t of atRisk) {
+      const placed = t.blocks.reduce((s, b) => s + (b.e - b.s), 0);
+      html += `<div style="padding:8px 0;border-bottom:.5px solid rgba(120,120,128,.18)">
+        <div class="row" style="align-items:center">
+          <span style="font-size:13px">⏳</span>
+          <div style="min-width:0">
+            <div style="font-weight:500;font-size:14px">${esc(t.title)}</div>
+            <div class="sub">Needs ${dur(t.estimate - placed)} more before ${fmt(t.deadline)}</div>
+            <div class="tl-reason">${esc(lastReasons[t.id] || "")}</div>
+          </div>
+        </div></div>`;
+    }
+    html += `</div>`;
+  }
+
+  // timeline
+  const blocks = [];
+  for (const t of tasks) for (const b of t.blocks) blocks.push({ task: t, block: b });
+  blocks.sort((a, b) => a.block.s - b.block.s);
+
+  html += `<div class="section-title"><span class="dot"></span>Today's plan
+    <span style="margin-left:auto;font-weight:500;text-transform:none;letter-spacing:0">${dur(plannedMinutes())} planned · ${dur(freeMinutes())} free</span></div>
+    <div class="card" style="padding:6px 14px">`;
+  if (!blocks.length) html += `<div class="sub" style="padding:14px 0">Nothing scheduled yet — add a task and it lands here.</div>`;
+  for (const { task, block } of blocks) {
+    const past = block.e <= clock;
+    const colour = block.origin === "imported" ? "var(--imported)" : block.pinned ? "var(--pinned)" : "var(--accent)";
+    html += `<div class="tl-row ${past ? "past" : ""}">
+      <div class="tl-time">${fmt(block.s)}<span>${dur(block.e - block.s)}</span></div>
+      <div class="tl-bar" style="background:${colour}"></div>
+      <div class="tl-main">
+        <div class="row" style="align-items:center;gap:6px">
+          <div style="font-weight:500;font-size:14px;${task.done ? "text-decoration:line-through;color:var(--muted)" : ""}">${esc(task.title)}</div>
+          ${block.pinned ? '<span class="chip pin">📌 pinned</span>' : ""}
+        </div>
+        <div class="tl-reason">${esc(lastReasons[task.id] || "")}</div>
+      </div>
+      <button class="check ${task.done ? "done" : ""}" data-action="toggle" data-id="${task.id}">${task.done ? "✓" : ""}</button>
+    </div>`;
+  }
+  html += "</div>";
+
+  // quick add
+  const presets = [15, 30, 45, 60, 90, 120];
+  html += `<div class="section-title"><span class="dot" style="color:var(--accent)"></span>Quick add</div>
+    <div class="addbar">
+      <span style="color:var(--accent)">＋</span>
+      <input id="quickTitle" placeholder="Add a task — Cadence finds the time" />
+      <button data-action="quick-add">↑</button>
+    </div>
+    <div class="chips">${presets.map(p =>
+      `<button data-action="estimate" data-min="${p}" class="${addEstimate === p ? "on" : ""}">${dur(p)}</button>`).join("")}</div>`;
+
+  return html;
+}
+
+function rel(deltaMinutes) {
+  if (deltaMinutes <= 0) return "now";
+  if (deltaMinutes < 60) return "in " + deltaMinutes + "m";
+  return "in " + dur(deltaMinutes);
+}
+
+/* ---------- Calendar ---------- */
+function calendarHTML() {
+  const rows = [];
+  for (let m = H0; m <= H1; m += 60) rows.push(m);
+
+  let html = `<div class="sub" style="margin-bottom:8px">${dur(plannedMinutes())} planned today ·
+    drag a block to pin it (the rest re-plans around it)</div><div class="grid-wrap"><div class="grid-scroll" id="gridScroll">
+    <div class="grid-inner" id="gridInner">`;
+
+  // working-hours shading
+  for (let m = H0; m < H1; m += 60) {
+    const covered = windows.some(w => m >= w.s && m < w.e);
+    if (!covered) html += `<div class="shade" style="top:${((m - H0) / 60 * 64)}px;height:64px"></div>`;
+  }
+  for (const m of rows) {
+    const top = (m - H0) / 60 * 64;
+    html += `<div class="hourline" style="top:${top}px"></div>
+             <div class="hourlabel" style="top:${top}px">${fmt(m)}</div>`;
+  }
+
+  // imported busy
+  for (const b of busy) {
+    const top = (b.s - H0) / 60 * 64, h = (b.e - b.s) / 60 * 64;
+    html += `<div class="block imported" style="top:${top}px;height:${h}px">
+      <div class="b-title">${esc(b.title)}</div><div class="b-time">from your calendar</div></div>`;
+  }
+
+  // auto + pinned task blocks
+  for (const t of tasks) {
+    for (const b of t.blocks) {
+      const top = (b.s - H0) / 60 * 64, h = Math.max(20, (b.e - b.s) / 60 * 64);
+      html += `<div class="block ${b.pinned ? "pinned" : "auto"}" data-block="1" data-task="${t.id}"
+          data-block-id="${b.id}" data-s="${b.s}" data-e="${b.e}" style="top:${top}px;height:${h}px">
+        <div class="b-title">${t.done ? "✓ " : ""}${esc(t.title)}</div>
+        <div class="b-time">${fmt(b.s)} – ${fmt(b.e)}</div></div>`;
+    }
+  }
+
+  if (clock >= H0 && clock <= H1) {
+    html += `<div class="nowline" style="top:${(clock - H0) / 60 * 64}px"></div>`;
+  }
+  html += `</div></div></div>`;
+
+  const unscheduled = tasks.filter(t => !t.done && !t.anytime && t.blocks.length === 0);
+  html += `<div class="section-title"><span class="dot" style="color:${unscheduled.length ? "var(--warn)" : "var(--ok)"}"></span>
+    Unscheduled <span style="margin-left:auto;font-weight:500;text-transform:none;letter-spacing:0">${unscheduled.length ? unscheduled.length + " waiting" : "everything fits"}</span></div>`;
+  html += `<div class="card">`;
+  if (!unscheduled.length) {
+    html += `<div class="sub" style="padding:6px 0">Nothing waiting — the day is fully planned.</div>`;
+  } else {
+    for (const t of unscheduled) {
+      html += `<div style="padding:9px 0;border-bottom:.5px solid rgba(120,120,128,.18)">
+        <div class="row" style="align-items:center">
+          <span class="chip warn">${dur(t.estimate)}</span>
+          <div style="min-width:0;flex:1">
+            <div style="font-weight:500;font-size:14px">${esc(t.title)}</div>
+            <div class="tl-reason">${esc(lastReasons[t.id] || "")}</div>
+          </div>
+          <button class="navbtn" data-action="pin-now" data-id="${t.id}">Place</button>
+        </div></div>`;
+    }
+  }
+  html += `</div>`;
+  return html;
+}
+
+/* ---------- Tasks ---------- */
+function tasksHTML() {
+  const open = tasks.filter(t => !t.done);
+  const done = tasks.filter(t => t.done);
+  const totalMinutes = open.reduce((s, t) => s + t.estimate, 0);
+  const unscheduled = open.filter(t => !t.anytime && t.blocks.length === 0).length;
+
+  let html = `<div class="sub">${open.length} open · ${dur(totalMinutes)} of work ·
+    ${unscheduled} not placed yet</div>`;
+
+  const rowFor = t => {
+    const placed = t.blocks.reduce((s, b) => s + (b.e - b.s), 0);
+    const when = t.anytime ? '<span class="chip">♾ anytime</span>'
+      : t.blocks.length
+        ? `<span class="chip ${t.pinned ? "pin" : "accent"}">${t.pinned ? "📌" : "🕘"} ${fmt(Math.min(...t.blocks.map(b => b.s)))}</span>`
+          + (t.blocks.length > 1 ? `<span class="chip">${t.blocks.length} blocks</span>` : "")
+        : '<span class="chip warn">? not placed</span>';
+    return `<div class="task ${t.done ? "done" : ""}" data-action="open-task" data-id="${t.id}">
+      <button class="check ${t.done ? "done" : ""}" data-action="toggle" data-id="${t.id}">${t.done ? "✓" : ""}</button>
+      <div style="min-width:0;flex:1">
+        <div class="t-title">${esc(t.title)}</div>
+        <div class="t-meta">
+          ${when}
+          <span class="chip">${t.list}</span>
+          ${t.deadline !== null ? `<span class="chip ${t.deadline < clock && !t.done ? "danger" : ""}">⚑ by ${fmt(t.deadline)}</span>` : ""}
+          <span class="chip">${dur(t.estimate)}${t.estimate > placed && !t.anytime && !t.done ? " · " + dur(placed) + " placed" : ""}</span>
+        </div>
+      </div>
+    </div>`;
+  };
+
+  html += `<div class="section-title"><span class="dot" style="color:var(--accent)"></span>Open</div>
+    <div class="card" style="padding:6px 14px">${open.map(rowFor).join("")}</div>`;
+  if (done.length) {
+    html += `<div class="section-title"><span class="dot"></span>Done</div>
+      <div class="card" style="padding:6px 14px">${done.map(rowFor).join("")}</div>`;
+  }
+  html += `<div class="section-title"><span class="dot" style="color:var(--accent)"></span>Select a task</div>
+    <div class="card"><div class="sub">Tap any row to see exactly why the engine put it where it did —
+    the prototype keeps the same explanation strings the Swift engine returns.</div></div>`;
+  return html;
+}
+
+/* ---------- Rules ---------- */
+function rulesHTML() {
+  return `<div class="sub">These mirror Settings → Scheduling in the app. The sliders on the right change
+    the same values live.</div>
+  <div class="section-title"><span class="dot" style="color:var(--accent)"></span>Working hours</div>
+  <div class="card">
+    <div class="row" style="justify-content:space-between"><span>Tue – Thu (office)</span><b>10:00 – 18:00</b></div>
+    <div class="row" style="justify-content:space-between;margin-top:8px"><span>Fri – Mon (catch-up)</span><b>10:00 – 16:00</b></div>
+    <div class="row" style="justify-content:space-between;margin-top:8px"><span>Every day (evening block)</span><b>20:00 – 23:00</b></div>
+    <div class="sub" style="margin-top:8px">Office days keep 13:00–14:00 free for lunch. This prototype shows the
+      office-day shape; the app applies the full week.</div>
+  </div>
+  <div class="section-title"><span class="dot" style="color:var(--accent)"></span>Current rules</div>
+  <div class="card">
+    <div class="row" style="justify-content:space-between"><span>Buffer between blocks</span><b>${rules.buffer}m</b></div>
+    <div class="row" style="justify-content:space-between;margin-top:8px"><span>Shortest block</span><b>${rules.minChunk}m</b></div>
+    <div class="row" style="justify-content:space-between;margin-top:8px"><span>Longest block</span><b>${rules.maxChunk}m</b></div>
+    <div class="row" style="justify-content:space-between;margin-top:8px"><span>Max blocks per task</span><b>${rules.maxChunks}</b></div>
+    <div class="row" style="justify-content:space-between;margin-top:8px"><span>Daily auto-planned cap</span><b>${dur(rules.cap)}</b></div>
+    <div class="row" style="justify-content:space-between;margin-top:8px"><span>Ordering</span><b>${rules.edf ? "Deadlines first" : "Priority first"}</b></div>
+  </div>
+  <div class="section-title"><span class="dot"></span>Why it matters</div>
+  <div class="card"><div class="sub">
+    Deadlines first (EDF) is optimal for meeting deadlines on a single resource — a task due today
+    outranks an undated task even if the undated one is flagged high priority. Turning it off switches to
+    pure priority order. The daily cap is <i>soft</i>: Cadence exceeds it rather than leave work unplaced,
+    and it tells you when it did.
+  </div></div>`;
+}
+
+/* ---------- panel ---------- */
+function renderPanel() {
+  const unscheduled = tasks.filter(t => !t.done && !t.anytime && t.blocks.length === 0);
+  const tray = document.getElementById("tray");
+  tray.innerHTML = unscheduled.length
+    ? unscheduled.map(t => `<div>${esc(t.title)}<small>${esc(lastReasons[t.id] || "")}</small></div>`).join("")
+    : "<div>Everything fits today.<small>The engine placed every task with a home.</small></div>";
+}
+
+/* =========================================================================
+   5. INTERACTION
+   ========================================================================= */
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+function wireCommon() {
+  view.querySelectorAll("[data-action]").forEach(el => {
+    // skip elements that are inside a draggable block, the grid handles those
+    if (el.closest("[data-block]") && el.dataset.action !== "toggle") return;
+    el.addEventListener("click", ev => {
+      const action = el.dataset.action;
+      if (action === "toggle") { ev.stopPropagation(); toggleTask(el.dataset.id); }
+      if (action === "estimate") { addEstimate = Number(el.dataset.min); render(); }
+      if (action === "quick-add") quickAdd();
+      if (action === "complete-now") { const c = currentBlock(); if (c) toggleTask(c.task.id, false); }
+      if (action === "snooze-now") { const c = currentBlock(); if (c) snooze(c); }
+      if (action === "pin-now") { const t = tasks.find(x => x.id === el.dataset.id); if (t) { t.anytime = false; plan(); toast("Placed " + t.title + " at the earliest free slot."); render(); } }
+      if (action === "open-task") { const t = tasks.find(x => x.id === el.dataset.id); if (t) toast(t.title + " — " + (lastReasons[t.id] || "")); }
+    });
+  });
+  const quick = document.getElementById("quickTitle");
+  if (quick) {
+    quick.addEventListener("keydown", e => { if (e.key === "Enter") quickAdd(); });
+  }
+  updateStatusBar();
+}
+
+function quickAdd() {
+  const input = document.getElementById("quickTitle");
+  if (!input) return;
+  const title = input.value.trim();
+  if (!title) return;
+  const task = { id: "t" + Math.random().toString(36).slice(2, 8), title, estimate: addEstimate, priority: 1,
+    deadline: null, hard: false, list: "Inbox", done: false, blocks: [], pinned: false, anytime: false, split: true };
+  tasks.push(task);
+  plan();
+  const placed = task.blocks.length
+    ? "Placed at " + fmt(Math.min(...task.blocks.map(b => b.s))) + " — " + lastReasons[task.id]
+    : "Couldn't fit it: " + lastReasons[task.id];
+  toast(placed);
+  render();
+}
+
+function toggleTask(id, rerender = true) {
+  const t = tasks.find(x => x.id === id);
+  if (!t) return;
+  t.done = !t.done;
+  if (t.done) {
+    const finished = t.blocks.length;
+    plan();                                    // completing hands the time back
+    toast(finished ? "Done — " + dur(t.estimate) + " returned to your day." : "Done.");
+  } else {
+    plan();
+  }
+  if (rerender) render();
+}
+
+function snooze(cur) {
+  // push the block and the rest of the day forward by 15 minutes, pinning it
+  for (const b of cur.task.blocks) { b.s += 15; b.e += 15; }
+  cur.block.pinned = true;
+  cur.task.pinned = true;
+  toast("Snoozed 15m — the rest of the day re-planned around it.");
+  render();
+}
+
+/* ---------- drag to pin ---------- */
+function wireGrid() {
+  const inner = document.getElementById("gridInner");
+  if (!inner) return;
+  const scroll = document.getElementById("gridScroll");
+  if (scroll) scroll.scrollTop = 60;
+
+  inner.querySelectorAll("[data-block]").forEach(el => {
+    el.addEventListener("pointerdown", ev => {
+      ev.preventDefault();
+      const rect = inner.getBoundingClientRect();
+      const startY = ev.clientY;
+      const blockStart = Number(el.dataset.s);
+      const task = tasks.find(t => t.id === el.dataset.task);
+      drag = { el, task, startY, blockStart, rectTop: rect.top, moved: false };
+      el.classList.add("dragging");
+      el.setPointerCapture(ev.pointerId);
+    });
+
+    el.addEventListener("pointermove", ev => {
+      if (!drag || drag.el !== el) return;
+      const dy = ev.clientY - drag.startY;
+      if (Math.abs(dy) > 3) drag.moved = true;
+      let minutes = Math.round((dy / 64) * 60 / 15) * 15;
+      drag.minutes = minutes;
+      el.style.transform = "translateY(" + (minutes / 60 * 64) + "px)";
+      el.style.transition = "none";
+      const newStart = drag.blockStart + minutes;
+      el.querySelector(".b-time").textContent = fmt(newStart) + " – " + fmt(newStart + (Number(el.dataset.e) - Number(el.dataset.s)));
+    });
+
+    el.addEventListener("pointerup", ev => {
+      if (!drag || drag.el !== el) return;
+      el.classList.remove("dragging");
+      el.style.transition = "";
+      el.style.transform = "";
+      if (!drag.moved) { toast(drag.task.title + " — " + (lastReasons[drag.task.id] || "")); drag = null; render(); return; }
+      const minutes = drag.minutes || 0;
+      const length = Number(el.dataset.e) - Number(el.dataset.s);
+      let newStart = drag.blockStart + minutes;
+      newStart = Math.max(H0, Math.min(newStart, H1 - 15));
+      const task = drag.task;
+      const label = task.title;
+      task.anytime = false;
+      task.pinned = true;
+      // The dragged block becomes the pin. This task's other auto blocks are released,
+      // so the engine can re-home the remaining work around the new anchor.
+      const kept = task.blocks.filter(b => b.id !== el.dataset.blockId);
+      task.blocks = [{ id: "b" + Math.random().toString(36).slice(2, 9), s: newStart, e: newStart + length,
+                       origin: "auto", pinned: true }];
+      kept.length;                       // (released: plan() drops non-pinned blocks)
+      drag = null;
+      plan();
+      toast("Pinned “" + label + "” at " + fmt(newStart) + " — the rest of the day re-planned around it.");
+      render();
+    });
+  });
+}
+
+function toast(message) {
+  const el = document.getElementById("toast");
+  if (el) el.textContent = message;
+}
+
+function updateStatusBar() {
+  document.getElementById("statusTime").textContent = fmt(clock).replace(" ", "");
+}
+
+/* =========================================================================
+   6. WIRING
+   ========================================================================= */
+document.getElementById("tabbar").addEventListener("click", ev => {
+  const btn = ev.target.closest("button[data-tab]");
+  if (!btn) return;
+  tab = btn.dataset.tab;
+  render();
+});
+document.getElementById("navRight").addEventListener("click", () => {
+  plan();
+  const risk = tasks.filter(t => !t.done && !t.anytime && t.blocks.length === 0).length;
+  toast("Re-planned: " + dur(plannedMinutes()) + " placed." + (risk ? " " + risk + " couldn't fit." : " Everything fits."));
+  render();
+});
+document.getElementById("navLeft").addEventListener("click", () => {
+  tab = "today";
+  render();
+});
+
+function bindSlider(id, label, apply, format) {
+  const slider = document.getElementById(id);
+  const out = document.getElementById(label);
+  slider.addEventListener("input", () => {
+    apply(Number(slider.value));
+    out.textContent = format(Number(slider.value));
+    plan();
+    render();
+  });
+}
+bindSlider("sBuffer", "vBuffer", v => rules.buffer = v, v => v + "m");
+bindSlider("sMax", "vMax", v => rules.maxChunk = v, v => v + "m");
+bindSlider("sCap", "vCap", v => rules.cap = v, dur);
+bindSlider("sClock", "vClock", v => clock = v, fmt);
+document.getElementById("tEdf").addEventListener("change", e => { rules.edf = e.target.checked; plan(); render(); });
+document.getElementById("btnResched").addEventListener("click", () => {
+  plan();
+  toast("Re-planned with " + rules.buffer + "m buffers and a " + dur(rules.cap) + " daily cap.");
+  render();
+});
+document.getElementById("btnClearPins").addEventListener("click", () => {
+  for (const t of tasks) { t.pinned = false; }
+  plan();
+  toast("All pins released — everything is auto-scheduled again.");
+  render();
+});
+
+/* go */
+plan();
+render();
+</script>
+</body>
+</html>

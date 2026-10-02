@@ -1,0 +1,140 @@
+# Cadence CI
+#
+# Three things happen here, all on free GitHub-hosted runners:
+#
+#   engine-tests  (Linux, ~40s)   builds CadenceCore and runs the scheduling tests.
+#                                 This is the fast feedback loop: the algorithm, its
+#                                 determinism guarantee and the working-hours maths.
+#   ios-build     (macOS, ~5min)  compiles the whole app + widget extension for the
+#                                 simulator with Xcode. This is the real "does it
+#                                 compile?" answer — including the SwiftUI/SwiftData
+#                                 layer that cannot be built without Xcode.
+#   ios-tests     (macOS)         runs the app-level tests (model + coordinator) plus
+#                                 the core tests, on a simulator.
+#
+# Windows users: push this repo to GitHub and watch the Actions tab. The simulator
+# build is uploaded as a downloadable artifact, so you get a real compiled .app
+# without owning a Mac. (Installing on a physical iPhone additionally needs Apple code
+# signing — see the "TestFlight" note at the bottom of this file.)
+#
+# Locally: `swift test` runs the same engine tests anywhere Swift 5.9+ is installed.
+
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  # ---------------------------------------------------------------- engine (fast)
+  engine-tests:
+    name: Engine tests (Linux, no Xcode)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.0"
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Build the scheduling core
+        run: swift build --package-path . -c release
+
+      - name: Run engine + working-hours tests
+        run: swift test --package-path . 2>&1 | tail -40
+
+  # ------------------------------------------------------- app + widget (Xcode)
+  ios-build:
+    name: Build app + widget (macOS, Xcode)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build for the simulator (no signing required)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Cadence.xcodeproj \
+            -scheme Cadence \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            2>&1 | tail -60
+
+      - name: Package the built app
+        run: |
+          APP=$(find "$RUNNER_TEMP/DerivedData/Build/Products" -name "Cadence.app" -maxdepth 3 | head -1)
+          echo "built: $APP"
+          cd "$(dirname "$APP")" && zip -qry "$RUNNER_TEMP/Cadence-simulator.zip" "Cadence.app"
+          ls -lh "$RUNNER_TEMP/Cadence-simulator.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Cadence-simulator-app
+          path: ${{ runner.temp }}/Cadence-simulator.zip
+          if-no-files-found: error
+
+  # ------------------------------------------------------------- app tests (Xcode)
+  ios-tests:
+    name: App tests (macOS, simulator)
+    runs-on: macos-15
+    needs: ios-build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pick an available iPhone simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j \
+            | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];print(next(x['udid'] for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')))")
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          echo "Using simulator $UDID"
+
+      - name: Run all tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Cadence.xcodeproj \
+            -scheme Cadence \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            | tail -80
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ${{ runner.temp }}/DerivedData/Logs/Test/*.xcresult
+          if-no-files-found: ignore
+
+# ------------------------------------------------------------------------------
+# Want a build you can install on a real iPhone (TestFlight)? That needs Apple
+# code signing, which needs an Apple Developer account ($99/yr). Add these repo
+# secrets and a step using `xcodebuild -exportArchive` / fastlane:
+#
+#   APPLE_TEAM_ID, APP_STORE_CONNECT_KEY_ID, APP_STORE_CONNECT_ISSUER_ID,
+#   APP_STORE_CONNECT_KEY (the .p8 contents), and a distribution certificate
+#   imported into a temporary keychain.
+#
+# Cadence is deliberately structured so the simulator build works with no secrets
+# at all: the widget's App Group is a placeholder ID you replace with your own.
+# ------------------------------------------------------------------------------
