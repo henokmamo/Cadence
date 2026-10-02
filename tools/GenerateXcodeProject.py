@@ -308,7 +308,7 @@ def main() -> int:
     for directory, identifier in sorted(dir_groups.items()):
         if identifier in special:
             continue
-        body = " ".join(children.get(identifier, []))
+        body = ", ".join(children.get(identifier, []))
         writer.add(
             identifier,
             f'{{isa = PBXGroup; children = ({body}); name = "{os.path.basename(directory)}"; '
@@ -329,9 +329,9 @@ def main() -> int:
     app_resources_phase = uid("phase", APP_TARGET, "resources")
     app_embed_phase = uid("phase", APP_TARGET, "embed")
 
-    writer.add(app_sources_phase, f'{{isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = ({" ".join(app_source_builds)}); runOnlyForDeploymentPostprocessing = 0; }}')
+    writer.add(app_sources_phase, f'{{isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = ({", ".join(app_source_builds)}); runOnlyForDeploymentPostprocessing = 0; }}')
     writer.add(app_frameworks_phase, '{isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; }')
-    writer.add(app_resources_phase, f'{{isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = ({" ".join(app_resources)}); runOnlyForDeploymentPostprocessing = 0; }}')
+    writer.add(app_resources_phase, f'{{isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = ({", ".join(app_resources)}); runOnlyForDeploymentPostprocessing = 0; }}')
 
     widget_build_file = uid("buildfile", APP_TARGET, widget_product)
     writer.add(
@@ -347,14 +347,14 @@ def main() -> int:
     widget_sources_phase = uid("phase", WIDGET_TARGET, "sources")
     widget_frameworks_phase = uid("phase", WIDGET_TARGET, "frameworks")
     widget_resources_phase = uid("phase", WIDGET_TARGET, "resources")
-    writer.add(widget_sources_phase, f'{{isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = ({" ".join(widget_source_builds)}); runOnlyForDeploymentPostprocessing = 0; }}')
+    writer.add(widget_sources_phase, f'{{isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = ({", ".join(widget_source_builds)}); runOnlyForDeploymentPostprocessing = 0; }}')
     writer.add(widget_frameworks_phase, '{isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; }')
     writer.add(widget_resources_phase, '{isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; }')
 
     test_sources_phase = uid("phase", TEST_TARGET, "sources")
     test_frameworks_phase = uid("phase", TEST_TARGET, "frameworks")
     test_resources_phase = uid("phase", TEST_TARGET, "resources")
-    writer.add(test_sources_phase, f'{{isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = ({" ".join(test_source_builds)}); runOnlyForDeploymentPostprocessing = 0; }}')
+    writer.add(test_sources_phase, f'{{isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = ({", ".join(test_source_builds)}); runOnlyForDeploymentPostprocessing = 0; }}')
     writer.add(test_frameworks_phase, '{isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; }')
     writer.add(test_resources_phase, '{isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; }')
 
@@ -419,35 +419,35 @@ def main() -> int:
 
     writer.add(
         root_group,
-        f'{{isa = PBXGroup; children = ({" ".join(children.get(root_group, []))}); sourceTree = "<group>"; }}',
+        f'{{isa = PBXGroup; children = ({", ".join(children.get(root_group, []))}); sourceTree = "<group>"; }}',
     )
     writer.add(
         app_group,
-        f'{{isa = PBXGroup; children = ({" ".join(children.get(app_group, []))}); path = {APP_TARGET}; sourceTree = "<group>"; }}',
+        f'{{isa = PBXGroup; children = ({", ".join(children.get(app_group, []))}); path = {APP_TARGET}; sourceTree = "<group>"; }}',
     )
     writer.add(
         core_group,
-        f'{{isa = PBXGroup; children = ({" ".join(children.get(core_group, []))}); path = {CORE_DIR}; sourceTree = "<group>"; }}',
+        f'{{isa = PBXGroup; children = ({", ".join(children.get(core_group, []))}); path = {CORE_DIR}; sourceTree = "<group>"; }}',
     )
     writer.add(
         core_tests_group,
-        f'{{isa = PBXGroup; children = ({" ".join(children.get(core_tests_group, []))}); path = {CORE_TESTS_DIR}; sourceTree = "<group>"; }}',
+        f'{{isa = PBXGroup; children = ({", ".join(children.get(core_tests_group, []))}); path = {CORE_TESTS_DIR}; sourceTree = "<group>"; }}',
     )
     writer.add(
         shared_group,
-        f'{{isa = PBXGroup; children = ({" ".join(children.get(shared_group, []))}); name = {SHARED_DIR}; path = {SHARED_DIR}; sourceTree = "<group>"; }}',
+        f'{{isa = PBXGroup; children = ({", ".join(children.get(shared_group, []))}); name = {SHARED_DIR}; path = {SHARED_DIR}; sourceTree = "<group>"; }}',
     )
     writer.add(
         widget_group,
-        f'{{isa = PBXGroup; children = ({" ".join(children.get(widget_group, []))}); path = {WIDGET_TARGET}; sourceTree = "<group>"; }}',
+        f'{{isa = PBXGroup; children = ({", ".join(children.get(widget_group, []))}); path = {WIDGET_TARGET}; sourceTree = "<group>"; }}',
     )
     writer.add(
         tests_group,
-        f'{{isa = PBXGroup; children = ({" ".join(children.get(tests_group, []))}); path = {TEST_TARGET}; sourceTree = "<group>"; }}',
+        f'{{isa = PBXGroup; children = ({", ".join(children.get(tests_group, []))}); path = {TEST_TARGET}; sourceTree = "<group>"; }}',
     )
     writer.add(
         products_group,
-        f'{{isa = PBXGroup; children = ({" ".join(children.get(products_group, []))}); name = Products; sourceTree = "<group>"; }}',
+        f'{{isa = PBXGroup; children = ({", ".join(children.get(products_group, []))}); name = Products; sourceTree = "<group>"; }}',
     )
 
     # --------------------------------------------------- build configurations

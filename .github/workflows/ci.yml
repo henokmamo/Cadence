@@ -52,7 +52,15 @@ jobs:
         run: swift build --package-path . -c release
 
       - name: Run engine + working-hours tests
-        run: swift test --package-path . 2>&1 | tail -40
+        run: |
+          set -o pipefail          # without this, `| tail` masks a failing test run
+          swift test --package-path . 2>&1 | tail -40
+
+      # No Xcode needed: parses project.pbxproj with the same grammar rules Xcode uses.
+      # Catches the "array written without commas" class of bug in ~1 second instead of
+      # letting the macOS runner discover it as a mystery exit code 74.
+      - name: Validate the Xcode project offline
+        run: python3 tools/ValidateXcodeProject.py
 
   # ------------------------------------------------------- app + widget (Xcode)
   ios-build:
@@ -63,6 +71,22 @@ jobs:
 
       - name: Show Xcode version
         run: xcodebuild -version
+
+      - name: Preflight — make sure the project file is readable
+        run: |
+          set -e
+          echo "--- repository root ---"
+          ls -la
+          echo
+          if [ ! -f Cadence.xcodeproj/project.pbxproj ]; then
+            echo "::error::Cadence.xcodeproj/project.pbxproj is missing from the repository."
+            echo "Upload the Cadence.xcodeproj folder. See NEXT-STEPS.md."
+            exit 1
+          fi
+          echo "--- plist syntax (a failure here is what produces exit code 74) ---"
+          plutil -lint Cadence.xcodeproj/project.pbxproj
+          echo "--- can xcodebuild read the project at all? ---"
+          xcodebuild -list -project Cadence.xcodeproj
 
       - name: Build for the simulator (no signing required)
         run: |

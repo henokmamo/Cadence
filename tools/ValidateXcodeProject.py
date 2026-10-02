@@ -7,11 +7,17 @@ path doesn't resolve produces a cryptic "Build input file cannot be found" or an
 "unsupported project" error inside Xcode. This script catches those offline.
 
 Checks
+  0. the file parses as an OpenStep plist — the exact grammar Xcode requires.
+     A missing ',' or ';' in project.pbxproj makes Xcode report "The project is
+     damaged and cannot be opened due to a parse error" and xcodebuild exits with
+     code 74 (EX_IOERR), which tells you nothing. This check points at the offset.
   1. every referenced object id is defined
   2. every PBXFileReference resolves to a real file/directory on disk
      (walking the group tree the same way Xcode does)
   3. every source file in the repo is a member of exactly one target's sources phase
   4. no duplicate object ids
+  5. the shared scheme points at targets that exist (a stale BlueprintIdentifier
+     makes `xcodebuild -scheme Cadence` find nothing to build)
 
 Usage:  python3 tools/ValidateXcodeProject.py
 """
@@ -22,6 +28,9 @@ import os
 import re
 import sys
 from collections import defaultdict
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from openstep_plist import PlistSyntaxError, parse_file  # noqa: E402  (same directory)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PBXPROJ = os.path.join(ROOT, "Cadence.xcodeproj", "project.pbxproj")
@@ -95,6 +104,31 @@ def main() -> int:
         return 1
 
     text = open(PBXPROJ, encoding="utf-8").read()
+
+    # 0. Grammar first: everything below assumes a readable plist, and Xcode will
+    #    refuse the project outright if this fails (exit code 74).
+    try:
+        tree = parse_file(PBXPROJ)
+    except PlistSyntaxError as error:
+        print("plist grammar      : ✗ NOT READABLE BY XCODE\n")
+        print(error)
+        print("\nXcode would report: \"The project is damaged and cannot be opened")
+        print("due to a parse error\" and xcodebuild would exit with code 74.")
+        print("Fix tools/GenerateXcodeProject.py, regenerate, and re-run this script.")
+        return 1
+
+    grammar_note = "✓"
+    try:  # optional second opinion from a real pbxproj library, if installed
+        from pbxproj import XcodeProject
+
+        XcodeProject.load(PBXPROJ)
+        grammar_note = "✓ (cross-checked with mod-pbxproj)"
+    except ImportError:
+        pass
+    except Exception as error:  # a parser disagreeing with us IS a problem
+        print(f"plist grammar      : ✗ a real pbxproj parser rejected the file: {error}")
+        return 1
+
     definitions, dangling, duplicates = parse(text)
 
     problems: list[str] = []
@@ -139,14 +173,37 @@ def main() -> int:
             elif ref in id_to_path:
                 in_sources.add(id_to_path[ref])
 
+    # 5. scheme -> target references
+    scheme_path = os.path.join(
+        ROOT, "Cadence.xcodeproj", "xcshareddata", "xcschemes", "Cadence.xcscheme"
+    )
+    scheme_note = "not found"
+    if os.path.exists(scheme_path):
+        scheme_text = open(scheme_path, encoding="utf-8").read()
+        blueprints = set(re.findall(r'BlueprintIdentifier = "([0-9A-F]{24})"', scheme_text))
+        target_ids = {
+            key for key, value in tree.get("objects", {}).items()
+            if isinstance(value, dict) and value.get("isa") == "PBXNativeTarget"
+        }
+        unknown = sorted(blueprints - target_ids)
+        if unknown:
+            problems.append(f"scheme references target ids that don't exist: {unknown}")
+            scheme_note = "✗ stale target references"
+        else:
+            scheme_note = f"✓ ({len(blueprints)} target references resolve)"
+    else:
+        problems.append("missing shared scheme: Cadence.xcodeproj/xcshareddata/xcschemes/Cadence.xcscheme")
+
     orphaned = sorted(swift_on_disk - in_sources)
     if orphaned:
         problems.append("Swift files not compiled into any target:\n    " + "\n    ".join(orphaned))
 
+    print(f"plist grammar      : {grammar_note}")
     print(f"objects            : {len(definitions)}")
     print(f"file references    : {len(resolved)}")
     print(f"swift files on disk: {len(swift_on_disk)}")
     print(f"swift in phases    : {len(swift_on_disk & in_sources)}")
+    print(f"shared scheme      : {scheme_note}")
 
     if problems:
         print("\nPROBLEMS")
