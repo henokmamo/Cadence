@@ -97,7 +97,7 @@ final class ScheduleCoordinator {
         let allBlocks = fetchBlocks()
         let frozen = allBlocks.filter { !$0.isSoftDeleted && !$0.isEngineOwned }
 
-        var busy: [BusyInterval] = frozen.map {
+        let busy: [BusyInterval] = frozen.map {
             BusyInterval(
                 start: $0.start,
                 end: $0.end,

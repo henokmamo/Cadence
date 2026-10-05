@@ -178,6 +178,39 @@ already compiled Lists, TaskItem, TimeBlock, Theme, CalendarService, Shortcuts a
 errors above were the last ones reported before the build stopped; fewer files are recompiled
 each round, so the remaining surface is small.
 
+### Round 5: one error, one warning — both fixed
+
+```
+NotificationScheduler.swift:135  error: initializer for conditional binding must have
+                                 Optional type, not 'Date'
+ScheduleCoordinator.swift:100    warning: variable 'busy' was never mutated
+```
+
+1. **`guard let deadline = report.deadline`** — `report` is an `AtRiskTask`, whose `deadline`
+   is a plain `Date` (the at-risk list only contains tasks that *have* a deadline, so there is
+   nothing to unwrap). Now a `let` plus a separate `guard deadline > now`.
+2. The warning: `var busy` → `let busy`. Warnings don't fail a build, but they hide the next
+   real one.
+
+The audit tool grew a sixth and seventh check for exactly these shapes — **conditional binding
+on a non-optional** and **SwiftData relationship inverses that don't resolve** — and got a real
+piece of type inference to do it: `for report in atRiskTasks(...)` is resolved to
+`report : AtRiskTask` from the function's declared return type, so `report.deadline` is judged
+against `AtRiskTask` (non-optional) rather than against every `deadline` in the project
+(`TaskItem`'s is `Date?`, which is why the naive version stayed silent). Verified by
+reintroducing the error: caught at line 135, while the genuinely-optional
+`guard let deadline = task.deadline` on line 202 is correctly left alone.
+
+```
+swift build → Build complete!     swift test → 47 tests, 0 failures
+audit → no shadowing, no label mismatches, no duplicates, no unknown members,
+        no non-optional unwraps, no broken inverses, no isolation traps ✓
+```
+
+**The build is now reaching the end of the app target**: this round only
+`NotificationScheduler` failed, everything else in that batch compiled — including
+`ScheduleCoordinator`, `RecurrenceFactory`, `SampleData`, `TaskActionService` and `TimeBlock`.
+
 Timeline: run appears ~10 s · Linux job green ~1 min · macOS job queued 1–5 min then 3–5 min of
 building · app tests after that. Roughly **ten minutes end to end**, most of it waiting.
 

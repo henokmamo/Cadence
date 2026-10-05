@@ -132,7 +132,10 @@ final class NotificationScheduler {
 
         if preferences.deadlineWarningsEnabled {
             for report in atRiskTasks(now: now, context: context) where scheduled < maxPending {
-                guard let deadline = report.deadline, deadline > now else { continue }
+                // AtRiskTask.deadline is non-optional — the at-risk list is built from
+                // tasks that already have a deadline, so there is nothing to unwrap.
+                let deadline = report.deadline
+                guard deadline > now else { continue }
                 let fireDate = deadline.addingTimeInterval(-24 * 3600)
                 guard fireDate > now, !isQuietHours(fireDate, preferences: preferences) else { continue }
 

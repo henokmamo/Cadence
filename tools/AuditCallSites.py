@@ -29,7 +29,22 @@ regex-based validator both sail past, and that only showed up on a real compile:
      or a property whose declared type is one of ours (`var status: TaskStatus`). Anything
      belonging to a framework type is left alone.
 
-  5. ISOLATION — a `@MainActor` type constructed in a default argument:
+  5. BINDING — `guard let` / `if let` on something that is not Optional:
+
+        let deadline = report.deadline            // AtRiskTask.deadline is a Date
+        guard let deadline = report.deadline ...  // error: must have Optional type
+
+     Resolved against project declarations, so `guard let d = task.deadline` (a `Date?`)
+     stays quiet.
+
+  6. INVERSE — a SwiftData relationship pointing at a key path that doesn't exist:
+
+        @Relationship(inverse: \\Tag.tasks)       // if Tag had no `tasks`, this is a
+        var tags: [Tag] = []                      // compile error inside the macro
+
+     Cheap to check, and it fails the whole build when wrong.
+
+  7. ISOLATION — a `@MainActor` type constructed in a default argument:
 
         init(notifications: NotificationScheduler = NotificationScheduler())
         // error: call to main actor-isolated initializer in a sync nonisolated context
@@ -479,6 +494,12 @@ def main() -> int:
         r"(?:class|struct|enum|actor)\s+([A-Za-z_][A-Za-z0-9_]*)[^{]*\{")
 
     type_members: dict[str, set[str]] = {}
+    member_optionality: dict[str, set[bool]] = {}
+    # Per-type detail, so `report.deadline` can be judged against AtRiskTask alone rather
+    # than against every `deadline` in the project (TaskItem's is optional; AtRiskTask's is
+    # not, and only the specific type tells you which rule applies).
+    type_member_optionality: dict[str, dict[str, bool]] = {}
+    func_returns: dict[str, set[str]] = {}
     for path, text in every_file:
         for match in TYPE_DECL_BODY.finditer(text):
             name = match.group(1)
@@ -488,6 +509,18 @@ def main() -> int:
                 continue
             body = text[open_brace + 1:close_brace]
             members = set(PROTOCOL_MEMBERS)
+            # NAME -> is it declared Optional?  (both forms: `var d: Date?`, `var d: Date!`)
+            for prop, type_text in re.findall(
+                    r"\b(?:var|let)\s+([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([^\n={]+)", body):
+                cleaned = type_text.strip().rstrip()
+                optional = cleaned.endswith("?") or cleaned.endswith("!")
+                member_optionality.setdefault(prop, set()).add(optional)
+                type_member_optionality.setdefault(name, {})[prop] = optional
+            # function return types, same idea: `func f() -> Date` vs `-> Date?`
+            for func_name, ret in re.findall(
+                    r"\bfunc\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:<[^>]*>)?\([^)]*\)\s*->\s*([^\n{]+)", body):
+                member_optionality.setdefault(func_name, set()).add("?" in ret or "!" in ret)
+                func_returns.setdefault(func_name, set()).add(ret.strip())
             members |= set(re.findall(r"\b(?:var|let|func)\s+([A-Za-z_][A-Za-z0-9_]*)", body))
             members |= set(re.findall(r"^\s*case\s+([A-Za-z_][A-Za-z0-9_]*)", body, re.M))
             for group in re.findall(r"^\s*case\s+([A-Za-z_][A-Za-z0-9_]*(?:\s*,\s*[A-Za-z_][A-Za-z0-9_]*)+)",
@@ -553,7 +586,84 @@ def main() -> int:
                     f"  {relative}:{line}  '{owner}.{member}' — {shown} has no "
                     f"member '{member}'")
 
-    # ---- check 5: @MainActor types constructed as a default argument
+    # ---- resolve loop variables to their element type, when the source says so
+    #
+    #   for report in atRiskTasks(now:context:)   →   atRiskTasks returns [AtRiskTask]
+    #   → report : AtRiskTask
+    loop_var_types: dict[tuple[str, str], set[str]] = {}
+    for path, text in every_file:
+        relative = os.path.relpath(path, ROOT)
+        for match in re.finditer(
+                r"\bfor\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", text):
+            var_name, func_name = match.group(1), match.group(2)
+            for declared_return in func_returns.get(func_name, set()):
+                element = declared_return.strip()
+                if element.startswith("[") and element.endswith("]"):
+                    element = element[1:-1].strip()
+                element = element.rstrip("?").strip()
+                if element in type_members:
+                    loop_var_types.setdefault((relative, var_name), set()).add(element)
+
+    # ---- check 5: conditional binding on a non-optional
+    #
+    # Only reported when every declaration of that name in the project is non-optional;
+    # a name that is `Date` here and `Date?` there is left alone.
+    bindings_on_nonoptionals: list[str] = []
+    for path, text in every_file:
+        relative = os.path.relpath(path, ROOT)
+        for match in re.finditer(
+                r"\b(?:if|guard)\s+let\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^\n,{]+)", text):
+            expression = match.group(2).strip()
+            subject: str | None = None
+            member_match = re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*\.([A-Za-z_][A-Za-z0-9_]*)", expression)
+            call_match = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*)\s*\(.*", expression)
+            if member_match:
+                subject = member_match.group(1)
+            elif call_match:
+                subject = call_match.group(1)
+            if not subject:
+                continue
+
+            # Prefer the owner's actual type when the source reveals it.
+            optional: bool | None = None
+            owner = expression.split(".", 1)[0].strip() if "." in expression else None
+            if owner:
+                for candidate in loop_var_types.get((relative, owner), set()):
+                    if subject in type_member_optionality.get(candidate, {}):
+                        optional = type_member_optionality[candidate][subject]
+                        break
+            if optional is None:
+                declared = member_optionality.get(subject)
+                if not declared:
+                    continue
+                if True in declared and False in declared:
+                    continue      # ambiguous across types; stay quiet
+                optional = next(iter(declared))
+            if optional:
+                continue          # genuinely Optional: `guard let` is correct
+            line = text.count("\n", 0, match.start()) + 1
+            bindings_on_nonoptionals.append(
+                f"  {relative}:{line}  'let {match.group(1)} = {expression}' — "
+                f"{subject} is declared non-optional, so there is nothing to unwrap")
+
+    # ---- check 6: @Relationship inverse key paths resolve
+    inverse_problems: list[str] = []
+    for path, text in every_file:
+        relative = os.path.relpath(path, ROOT)
+        for match in re.finditer(r"inverse:\s*\\([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)",
+                                 text):
+            owner, member = match.group(1), match.group(2)
+            line = text.count("\n", 0, match.start()) + 1
+            if owner not in type_members:
+                inverse_problems.append(
+                    f"  {relative}:{line}  inverse: \\{owner}.{member} — no type "
+                    f"'{owner}' in the project")
+            elif member not in type_members[owner]:
+                inverse_problems.append(
+                    f"  {relative}:{line}  inverse: \\{owner}.{member} — {owner} has "
+                    f"no property '{member}'")
+
+    # ---- check 7: @MainActor types constructed as a default argument
     isolated_types = set()
     for path, text in every_file:
         for match in re.finditer(
@@ -588,13 +698,24 @@ def main() -> int:
     if mismatches:
         print(f"\nCALL SITES — labels match no declaration ({len(mismatches)}):")
         print("\n".join(mismatches))
+    if bindings_on_nonoptionals:
+        print(f"\nBINDING — conditional binding on a non-optional ({len(bindings_on_nonoptionals)}):")
+        print("\n".join(bindings_on_nonoptionals))
+
+    if inverse_problems:
+        print(f"\nINVERSE — relationship key path doesn't resolve ({len(inverse_problems)}):")
+        print("\n".join(inverse_problems))
+
     if unknown_members:
         print(f"\nUNKNOWN MEMBERS — no such member on a project type ({len(unknown_members)}):")
         print("\n".join(unknown_members))
 
-    if not shadowing and not mismatches and not duplicates and not isolation and not unknown_members:
+    if (not shadowing and not mismatches and not duplicates and not isolation
+            and not unknown_members and not bindings_on_nonoptionals
+            and not inverse_problems):
         print(f"\nno shadowing, no label mismatches, no duplicate signatures, "
-              f"no unknown members ({checked} member accesses resolved), no isolation traps ✓")
+              f"no unknown members ({checked} member accesses resolved), "
+              f"no non-optional unwraps, no broken inverses, no isolation traps ✓")
         return 0
     if not quiet:
         print("\n(these are candidates: confirm each before changing code)")
