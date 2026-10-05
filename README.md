@@ -204,7 +204,14 @@ the generator is checked in so adding files doesn't mean hand-editing `project.p
 ```bash
 python3 tools/GenerateXcodeProject.py     # rebuild Cadence.xcodeproj from the files on disk
 python3 tools/ValidateXcodeProject.py     # offline sanity check: dangling ids, file paths,
-                                          # every Swift file assigned to exactly one target
+                                          # every Swift file assigned to exactly one target,
+                                          # plist grammar Xcode requires, scheme→target refs
+python3 tools/openstep_plist.py Cadence.xcodeproj/project.pbxproj
+                                          # strict reader for the .pbxproj grammar; prints the
+                                          # byte offset of anything Xcode would reject
+python3 tools/AuditCallSites.py           # advisory: shadowed method names and call sites
+                                          # whose argument labels match no declaration
+./tools/ParseAllSwift.sh                  # syntax-check every Swift file without Xcode
 ```
 
 Both are idempotent and dependency-free (Python 3 stdlib only). If you'd rather use

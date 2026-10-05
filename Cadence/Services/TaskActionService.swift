@@ -85,8 +85,8 @@ final class TaskActionService {
         PendingActionQueue.clear()
         AppGroupCaptureQueue.clear()
 
-        for capture in captures {
-            capture(title: capture.title, estimateMinutes: capture.estimateMinutes, now: now)
+        for queued in captures {
+            capture(title: queued.title, estimateMinutes: queued.estimateMinutes, now: now)
         }
 
         var needsReschedule = false

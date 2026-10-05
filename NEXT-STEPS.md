@@ -93,6 +93,48 @@ round-trip through the App Group, now/next lookups, exclusive block ends, the op
 complete/snooze patches, and surviving corrupt data — the stuff that decides what your widget
 shows while the app isn't running.
 
+### Round 3: the widget target now builds — one app-target error, also fixed
+
+Your last log shows real progress worth noticing: `Ld ... CadenceWidget.debug.dylib` — the
+**widget extension compiled and linked**. The failure moved to the app target, and it was the
+same flavour as last time, one line:
+
+```swift
+for capture in captures {
+    capture(title: capture.title, ...)      // the loop variable hides the method `capture`
+}
+
+for queued in captures {                    // fixed
+    capture(title: queued.title, ...)
+}
+```
+
+Rather than pay for another round-trip on the same category of mistake, this round I built a
+checker for it — `tools/AuditCallSites.py` — and ran it over the whole project:
+
+- **shadowing**: a local binding whose name hides a method, then a call to that name
+- **call sites**: arguments whose labels match no declaration (the "missing argument label"
+  family)
+
+It found nothing else in the project, and I verified it genuinely works by re-introducing your
+bug in a throwaway copy — it pointed straight at line 89. The tool now runs in CI's fast Linux
+job as an advisory step, so this class of bug gets caught in ~1 second instead of a macOS
+round-trip.
+
+Also audited this round, since one compile error can hide others in the same batch:
+
+| Checked | Result |
+|---|---|
+| `RecurrenceFactory` — every member and both initialisers it calls | all exist with matching labels |
+| `TaskItem.init` / `Subtask.init` argument labels | match exactly |
+| every `UUID` ⇄ `String` boundary in the app + widget | consistent |
+| dotted property accesses project-wide (typo hunt) | nothing undeclared |
+| `tags` / `subtasks` relationships across model copies | correct (tags shared, subtasks recreated) |
+
+CI also got faster: the macOS test job now runs `-only-testing:CadenceTests`, because the Linux
+job already runs the engine and App-Group-contract suites from the same source files — no point
+billing macOS minutes twice for the same green result.
+
 Timeline: run appears ~10 s · Linux job green ~1 min · macOS job queued 1–5 min then 3–5 min of
 building · app tests after that. Roughly **ten minutes end to end**, most of it waiting.
 

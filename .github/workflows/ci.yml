@@ -62,6 +62,12 @@ jobs:
       - name: Validate the Xcode project offline
         run: python3 tools/ValidateXcodeProject.py
 
+      # Advisory, never fails the job: reports the two Swift mistakes a syntax check
+      # cannot see (a local binding shadowing a method of the same name, and call sites
+      # whose argument labels match no declaration). Both cost a macOS round-trip once.
+      - name: Audit call sites (advisory)
+        run: python3 tools/AuditCallSites.py || echo "::warning::call-site audit found candidates — see the log above"
+
   # ------------------------------------------------------- app + widget (Xcode)
   ios-build:
     name: Build app + widget (macOS, Xcode)
@@ -131,10 +137,14 @@ jobs:
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
           echo "Using simulator $UDID"
 
+      # Only the app-level tests here: the Linux job already ran the engine and
+      # App-Group-contract suites (same source files), so repeating them on a macOS
+      # runner would burn 10x-billed minutes for the same result.
       - name: Run all tests
         run: |
           set -o pipefail
           xcodebuild test \
+            -only-testing:CadenceTests \
             -project Cadence.xcodeproj \
             -scheme Cadence \
             -destination "id=${{ steps.sim.outputs.udid }}" \
