@@ -16,6 +16,27 @@ regex-based validator both sail past, and that only showed up on a real compile:
         func place(task: TaskItem, at: Date)
         place(item, at: now)                            // error: missing argument label
 
+  3. DUPLICATES — the same signature declared twice in the same file:
+
+        func handleBackground() { ... }
+        func handleBackground() { ... }        // error: invalid redeclaration
+
+  4. UNKNOWN MEMBERS — `.status.isCompleted` where `TaskStatus` has no `isCompleted`:
+
+        for task in openTasks where task.status.isCompleted { }   // no such member
+
+     The member checks resolve names to *project* types: a static access (`TaskStatus.x`)
+     or a property whose declared type is one of ours (`var status: TaskStatus`). Anything
+     belonging to a framework type is left alone.
+
+  5. ISOLATION — a `@MainActor` type constructed in a default argument:
+
+        init(notifications: NotificationScheduler = NotificationScheduler())
+        // error: call to main actor-isolated initializer in a sync nonisolated context
+
+     A default argument is evaluated at the call site, which is not the actor's
+     context; construct it inside the initialiser body instead.
+
 This is a *heuristic auditor*, not a compiler: it reports candidates for human
 review. It deliberately errs toward a few false positives over hiding a real bug,
 and it only inspects names declared inside the project.
@@ -47,6 +68,43 @@ def swift_files() -> list[str]:
         for current, _, names in os.walk(os.path.join(ROOT, directory)):
             out.extend(os.path.join(current, n) for n in names if n.endswith(".swift"))
     return sorted(out)
+
+
+TYPE_DECL = re.compile(
+    r"^\s*(?:@[A-Za-z]+(?:\([^)]*\))?\s+)*"
+    r"(?:public\s+|internal\s+|private\s+|fileprivate\s+|final\s+)*"
+    r"(class|struct|enum|actor|extension)\s+([A-Za-z_][A-Za-z0-9_]*)",
+)
+
+
+def scope_of_each_line(text: str) -> list[str]:
+    """The enclosing type path for every line, e.g. 'AppGroupCaptureQueue' or 'A.B'.
+
+    The duplicate check needs this: four App Intents in one file may each declare
+    `perform()`, and that is four separate types, not a redeclaration. Brace depth is
+    enough to track nesting here because a type's braces enclose its members.
+    """
+    scopes: list[str] = []
+    stack: list[tuple[int, str]] = []      # (brace depth inside the type, type name)
+    depth = 0
+    lines = text.splitlines()
+    pending: str | None = None
+
+    for line in lines:
+        # a type declared on this line opens a scope at the depth this line reaches
+        match = TYPE_DECL.match(line)
+        if match:
+            pending = match.group(2)
+        opens = line.count("{")
+        closes = line.count("}")
+        depth += opens - closes
+        if pending and opens:
+            stack.append((depth, pending))
+            pending = None
+        while stack and depth < stack[-1][0]:
+            stack.pop()
+        scopes.append(".".join(name for _, name in stack))
+    return scopes
 
 
 def strip_noise(text: str) -> str:
@@ -103,6 +161,7 @@ class Declaration:
     file: str
     line: int
     chunks: list[str] = field(default_factory=list)
+    scope: str = ""
 
     def has_default(self, index: int) -> bool:
         return index < len(self.chunks) and "=" in self.chunks[index]
@@ -127,9 +186,11 @@ class CallSite:
 
 FUNC_DEF = re.compile(r"\bfunc\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:<[^>]*>)?\s*\(")
 BINDING = re.compile(
-    r"\b(?:for\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\b"          # for x in xs
-    r"|(?:let|var)\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:[:=])"    # let x = / let x: T =
-    r"|if\s+let\s+([A-Za-z_][A-Za-z0-9_]*)|guard\s+let\s+([A-Za-z_][A-Za-z0-9_]*)"
+    r"(?:\{\s*\(?\s*([A-Za-z_][A-Za-z0-9_]*(?:\s*,\s*[A-Za-z_][A-Za-z0-9_]*)*)\s*\)?\s+in\b"  # closure params
+    r"|\bfor\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\b"                    # for x in xs
+    r"|\b(?:let|var)\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:[:=])"        # let x = / let x: T
+    r"|\bif\s+let\s+([A-Za-z_][A-Za-z0-9_]*)"                      # if let x
+    r"|\bguard\s+let\s+([A-Za-z_][A-Za-z0-9_]*)"                   # guard let x
     r")"
 )
 
@@ -197,6 +258,7 @@ def declaration_label_of(chunk: str) -> str | None:
 def scan(path: str, text: str):
     relative = os.path.relpath(path, ROOT)
     line_of = lambda index: text.count("\n", 0, index) + 1  # noqa: E731
+    scopes = scope_of_each_line(text)
 
     declarations: list[Declaration] = []
     bindings: list[Binding] = []
@@ -220,13 +282,22 @@ def scan(path: str, text: str):
             else:
                 merged.append(chunk)
         labels = [declaration_label_of(c) for c in merged]
-        declarations.append(Declaration(name, labels, relative, line_of(match.start()), merged))
+        line_start = text.rfind("\n", 0, match.start()) + 1
+        lead = text[line_start:match.start()]
+        indent = len(lead) - len(lead.lstrip())
+        line_number = line_of(match.start())
+        declarations.append(
+            Declaration(name, labels, relative, line_number, merged,
+                        scopes[line_number - 1] if line_number - 1 < len(scopes) else ""))
 
     for match in BINDING.finditer(text):
-        name = next((g for g in match.groups() if g), None)
-        if not name or name in SKIP_NAMES:
+        found = next((g for g in match.groups() if g), None)
+        if not found:
             continue
-        bindings.append(Binding(name, relative, line_of(match.start())))
+        # a closure can bind several names:  { (a, b) in ... }
+        for name in (part.strip() for part in found.split(",")):
+            if name and name not in SKIP_NAMES and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+                bindings.append(Binding(name, relative, line_of(match.start())))
 
     return declarations, bindings
 
@@ -368,15 +439,162 @@ def main() -> int:
                     f"\n        declared: {call.name}({'; '.join(sorted(expected))})"
                 )
 
+    # ---- check 3: the same signature declared twice in one file
+    #
+    # Same type (same file + same enclosing scope) + same name + same labels is a
+    # redeclaration. Overloads that differ only by argument labels remain legal, and so do
+    # same-named methods on different types.
+    seen: dict[tuple, Declaration] = {}
+    duplicates: list[str] = []
+    for declaration in declarations:
+        # scoped per enclosing type: `X.perform()` and `Y.perform()` are not duplicates
+        key = (declaration.file, declaration.scope, declaration.name, tuple(declaration.labels))
+        if key in seen:
+            duplicates.append(
+                f"  {declaration.file}:{declaration.line}  {declaration.name}"
+                f"({', '.join('_' if l is None else l for l in declaration.labels)})"
+                f"\n        already declared at line {seen[key].line}"
+            )
+        else:
+            seen[key] = declaration
+
+    # ---- check 4: members that don't exist on project types
+    #
+    # Two shapes carry enough information to check without a type checker:
+    #   • a static access on a type we declared            -> `TaskStatus.completed`
+    #   • a property whose declared type is one of ours    -> `task.status.isCompleted`
+    # Protocol-provided members are allow-listed; framework types are ignored entirely.
+        # Members this auditor cannot see: framework properties reached through a local
+    # variable whose type is not knowable from the source (the rest are caught by the
+    # "no project type has this member" rule). Extend this list when a report is noise.
+    FRAMEWORK_MEMBERS = {
+        "expirationHandler", "isCancelled", "taskIdentifier", "priority",
+    }
+    PROTOCOL_MEMBERS = {
+        "rawValue", "init", "hashValue", "description", "debugDescription", "self",
+        "allCases", "id", "label", "isEmpty", "count", "hash", "value",
+        "comparisonResult", "isKnownUniquelyReferenced",
+    }
+    TYPE_DECL_BODY = re.compile(
+        r"(?:class|struct|enum|actor)\s+([A-Za-z_][A-Za-z0-9_]*)[^{]*\{")
+
+    type_members: dict[str, set[str]] = {}
+    for path, text in every_file:
+        for match in TYPE_DECL_BODY.finditer(text):
+            name = match.group(1)
+            open_brace = text.index("{", match.end() - 1)
+            close_brace = match_paren(text, open_brace)
+            if close_brace == -1:
+                continue
+            body = text[open_brace + 1:close_brace]
+            members = set(PROTOCOL_MEMBERS)
+            members |= set(re.findall(r"\b(?:var|let|func)\s+([A-Za-z_][A-Za-z0-9_]*)", body))
+            members |= set(re.findall(r"^\s*case\s+([A-Za-z_][A-Za-z0-9_]*)", body, re.M))
+            for group in re.findall(r"^\s*case\s+([A-Za-z_][A-Za-z0-9_]*(?:\s*,\s*[A-Za-z_][A-Za-z0-9_]*)+)",
+                                    body, re.M):
+                members |= {n.strip() for n in group.split(",")}
+            type_members.setdefault(name, set()).update(members)
+
+    # property name -> the project types it is declared with
+    property_types: dict[str, set[str]] = {}
+    for path, text in every_file:
+        for match in re.finditer(
+                r"\b(?:var|let)\s+([a-z][A-Za-z0-9_]*)\s*:\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?:\?|!)?\s*(?:=|\{|$)",
+                text, re.M):
+            prop, declared = match.group(1), match.group(2)
+            if declared in type_members:
+                property_types.setdefault(prop, set()).add(declared)
+
+    # Which names are used as local variables? `snapshot.start` and `entry.taskTitle`
+    # are locals of uninferrable type, so the owner being a local disqualifies the
+    # access — scoped PER FILE, because a local in one file says nothing about a
+    # property of the same name in another (that mistake hid `status` here once already).
+    # `task.status.isCompleted` survives because the OWNER is `status` — a real property
+    # — not `task`, the loop variable.
+    local_names_by_file: dict[str, set[str]] = {}
+    for binding in bindings:
+        local_names_by_file.setdefault(binding.file, set()).add(binding.name)
+
+    unknown_members: list[str] = []
+    checked = 0
+    for path, text in every_file:
+        relative = os.path.relpath(path, ROOT)
+        # Every adjacent pair in a chain, not just the first — a lookahead lets matches
+        # overlap, so `task.status.isCompleted` yields both (task, status) and
+        # (status, isCompleted). The second pair is the checkable one: `task` is a loop
+        # variable of unknown type, but `status` is a declared property with a known type.
+        # Property-like accesses only: `actions.append(` is skipped because a method's
+        # existence cannot be judged from its call site alone.
+        for match in re.finditer(
+                # The lookbehind must exclude LETTERS too, or the scan starts mid-word
+                # ("schedulingMode.explanation" was read as "Mode.explanation").
+                r"(?<![A-Za-z0-9_])(?=([A-Za-z_][A-Za-z0-9_]*)\s*\.\s*([a-z][A-Za-z0-9_]*)\b(?!\s*\())",
+                text):
+            owner, member = match.group(1), match.group(2)
+            if member in FRAMEWORK_MEMBERS:
+                continue
+
+            candidates: set[str] = set()
+            if owner in type_members:                     # static access on our type
+                candidates = {owner}
+            elif owner in property_types and owner not in local_names_by_file.get(relative, set()):
+                candidates = property_types[owner]         # a real property; type is known
+            else:
+                continue                                   # local variable: type unknown
+
+            # Report only when no candidate type has the member — a name with several
+            # declared types (e.g. `suggestion` on two different structs) is resolved by
+            # whichever one actually declares it.
+            checked += 1
+            if not any(member in type_members[candidate] for candidate in candidates):
+                line = text.count("\n", 0, match.start()) + 1
+                shown = " or ".join(sorted(candidates))
+                unknown_members.append(
+                    f"  {relative}:{line}  '{owner}.{member}' — {shown} has no "
+                    f"member '{member}'")
+
+    # ---- check 5: @MainActor types constructed as a default argument
+    isolated_types = set()
+    for path, text in every_file:
+        for match in re.finditer(
+                r"@MainActor[\s\n]*(?:@[A-Za-z]+[\s\n]*)*(?:final\s+)?(?:class|struct|actor)\s+([A-Za-z_][A-Za-z0-9_]*)",
+                text):
+            isolated_types.add(match.group(1))
+    isolation: list[str] = []
+    for path, text in every_file:
+        relative = os.path.relpath(path, ROOT)
+        for match in re.finditer(
+                r"([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*\2\s*\(",
+                text):
+            if match.group(2) not in isolated_types:
+                continue
+            line = text.count("\n", 0, match.start()) + 1
+            isolation.append(
+                f"  {relative}:{line}  default argument constructs @MainActor type "
+                f"{match.group(2)}\n        build it inside the initialiser body "
+                f"(`= nil`, then `?? {match.group(2)}()`)"
+            )
+
     print(f"scanned {len(every_file)} Swift files · {len(declarations)} declarations · {len(bindings)} bindings")
+    if duplicates:
+        print(f"\nDUPLICATES — the same signature declared twice in one file ({len(duplicates)}):")
+        print("\n".join(duplicates))
+    if isolation:
+        print(f"\nISOLATION — @MainActor type built in a default argument ({len(isolation)}):")
+        print("\n".join(isolation))
     if shadowing:
         print(f"\nSHADOWING — a local binding hides a function of the same name ({len(shadowing)}):")
         print("\n".join(shadowing))
     if mismatches:
         print(f"\nCALL SITES — labels match no declaration ({len(mismatches)}):")
         print("\n".join(mismatches))
-    if not shadowing and not mismatches:
-        print("\nno shadowing and no label mismatches found ✓")
+    if unknown_members:
+        print(f"\nUNKNOWN MEMBERS — no such member on a project type ({len(unknown_members)}):")
+        print("\n".join(unknown_members))
+
+    if not shadowing and not mismatches and not duplicates and not isolation and not unknown_members:
+        print(f"\nno shadowing, no label mismatches, no duplicate signatures, "
+              f"no unknown members ({checked} member accesses resolved), no isolation traps ✓")
         return 0
     if not quiet:
         print("\n(these are candidates: confirm each before changing code)")

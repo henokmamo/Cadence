@@ -135,6 +135,49 @@ CI also got faster: the macOS test job now runs `-only-testing:CadenceTests`, be
 job already runs the engine and App-Group-contract suites from the same source files — no point
 billing macOS minutes twice for the same green result.
 
+### Round 4: three app-target errors, all fixed — and the auditor now catches all three
+
+```
+CadenceApp.swift:173        error: invalid redeclaration of 'handleBackground()'
+ScheduleCoordinator.swift:38 error: call to main actor-isolated initializer 'init()'
+                              in a synchronous nonisolated context
+CadenceApp.swift:187        error: value of type 'TaskStatus' has no member 'isCompleted'
+```
+
+What each one was, since they're all instructive:
+
+1. **Duplicate function.** An earlier edit left two identical `handleBackground()` methods.
+   Removed one.
+2. **`@MainActor` type built in a default argument.**
+   `notifications: NotificationScheduler = NotificationScheduler()` — a default argument is
+   evaluated at the *call site*, which isn't the actor's context. Both `CalendarService` and
+   `NotificationScheduler` are `@MainActor`, so both parameters became optional (`= nil`) and
+   are now built inside the initialiser body. Callers are unaffected.
+3. **A member that doesn't exist.** `task.status.isCompleted` — the property is on `TaskItem`
+   (`task.isCompleted`), not on `TaskStatus`. It sat inside a leftover stub
+   (`materialiseDueRecurrences`) that had no callers and did nothing but fetch; deleted.
+
+Then I extended `tools/AuditCallSites.py` from 2 checks to 5 (duplicate signatures, unknown
+members, isolation traps added), and verified it against all three errors by reintroducing them
+in a throwaway copy — it now reports **every one of them, at the right line**:
+
+```
+DUPLICATES   CadenceApp.swift:173  handleBackground() — already declared at line 169
+ISOLATION    ScheduleCoordinator.swift:42  default argument constructs @MainActor type CalendarService
+ISOLATION    ScheduleCoordinator.swift:43  default argument constructs @MainActor type NotificationScheduler
+UNKNOWN      CadenceApp.swift:186  'status.isCompleted' — TaskStatus has no member 'isCompleted'
+```
+
+It took four rounds of tuning to get its false-positive rate to zero (mid-word regex matches,
+locals shadowing properties, generics splitting argument lists) — the version in the repo
+reports **clean** on the real project while still catching all three planted bugs. It runs in
+CI as an advisory step, so the next occurrence of any of these gets caught in ~1 second.
+
+**Where the build stands now:** `CadenceWidget` compiles and links, and the app target has
+already compiled Lists, TaskItem, TimeBlock, Theme, CalendarService, Shortcuts and more. The
+errors above were the last ones reported before the build stopped; fewer files are recompiled
+each round, so the remaining surface is small.
+
 Timeline: run appears ~10 s · Linux job green ~1 min · macOS job queued 1–5 min then 3–5 min of
 building · app tests after that. Roughly **ten minutes end to end**, most of it waiting.
 

@@ -209,8 +209,10 @@ python3 tools/ValidateXcodeProject.py     # offline sanity check: dangling ids, 
 python3 tools/openstep_plist.py Cadence.xcodeproj/project.pbxproj
                                           # strict reader for the .pbxproj grammar; prints the
                                           # byte offset of anything Xcode would reject
-python3 tools/AuditCallSites.py           # advisory: shadowed method names and call sites
-                                          # whose argument labels match no declaration
+python3 tools/AuditCallSites.py           # advisory, 5 checks: shadowed method names, call sites
+                                          # whose labels match no declaration, duplicate
+                                          # signatures, unknown members (.status.isCompleted),
+                                          # @MainActor types built in default arguments
 ./tools/ParseAllSwift.sh                  # syntax-check every Swift file without Xcode
 ```
 

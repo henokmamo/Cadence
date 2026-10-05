@@ -31,17 +31,22 @@ final class ScheduleCoordinator {
 
     private var lastUndoToken: UndoToken?
 
+    /// `calendarService` and `notifications` default to nil rather than being constructed
+    /// in the parameter list: both are `@MainActor` types, and a default argument is
+    /// evaluated in the caller's (nonisolated) context — which the compiler rejects.
+    /// Building them inside the body keeps this initialiser's isolation intact, and
+    /// callers that pass their own instances are unaffected.
     init(
         context: ModelContext,
         preferences: Preferences,
-        calendarService: CalendarService = CalendarService(),
-        notifications: NotificationScheduler = NotificationScheduler(),
+        calendarService: CalendarService? = nil,
+        notifications: NotificationScheduler? = nil,
         snapshotWriter: WidgetSnapshotWriter = .init()
     ) {
         self.context = context
         self.preferences = preferences
-        self.calendarService = calendarService
-        self.notifications = notifications
+        self.calendarService = calendarService ?? CalendarService()
+        self.notifications = notifications ?? NotificationScheduler()
         self.snapshotWriter = snapshotWriter
     }
 

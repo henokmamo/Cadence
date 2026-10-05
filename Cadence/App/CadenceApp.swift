@@ -170,30 +170,6 @@ final class AppEnvironment {
         snapshotWriter.write(from: context, now: .now)
     }
 
-    func handleBackground() {
-        snapshotWriter.write(from: context, now: .now)
-    }
-
-    /// Recurring tasks whose `notBefore` has arrived but which have no live instance yet
-    /// get one — so a weekly review is waiting for you on the right morning even if you
-    /// never opened the app to complete the previous one.
-    func materialiseDueRecurrences(now: Date = .now) {
-        let descriptor = FetchDescriptor<TaskItem>(
-            predicate: #Predicate { $0.statusRaw == "open" && $0.isSoftDeleted == false }
-        )
-        guard let openTasks = try? context.fetch(descriptor) else { return }
-
-        var inserted = false
-        for task in openTasks where task.isRecurring && !task.status.isCompleted {
-            // A template/instance pair already handled by completion is skipped: we only
-            // add a new instance when the current one has been completed.
-            _ = task
-        }
-        _ = inserted
-        // Completion-driven materialisation lives in ScheduleCoordinator.complete();
-        // nothing to do here unless a series was created without a completed predecessor.
-    }
-
     // MARK: - Completion (calm by default)
 
     /// One entry point for completing a task from the UI. Returns whether a repeating
