@@ -71,7 +71,7 @@ struct CompleteTaskIntent: AppIntent {
 
     init() {}
 
-    init(taskID: UUID) { self.taskID = taskID }
+    init(taskID: UUID) { self.taskID = taskID.uuidString }
 
     func perform() async throws -> some IntentResult {
         guard let id = UUID(uuidString: taskID) else { return .result() }

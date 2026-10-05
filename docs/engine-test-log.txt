@@ -1,8 +1,8 @@
-Cadence — scheduling engine test run
+Cadence — engine + contract test run
 ================================================================================
-Date       : 2026-10-02 20:07 UTC
+Date       : 2026-10-05 13:16 UTC
 Toolchain  : Swift version 6.0.3 (swift-6.0.3-RELEASE)
-Platform   : Linux (Debian), no Xcode — this is the portable CadenceCore module
+Platform   : Linux (Debian), no Xcode — the parts of Cadence that don't need Apple frameworks
 Command    : swift test
 ================================================================================
 
@@ -32,6 +32,19 @@ SchedulingEngineTests.testSubtractRemovesBusyOverlap
 SchedulingEngineTests.testTasksBeyondHorizonAreNotSilentlyDropped
 SchedulingEngineTests.testUnschedulableTaskReportsShortfallAndReason
 SchedulingEngineTests.testWorkingHoursMaterialisation
+WidgetSnapshotContractTests.testBlockEndIsExclusive
+WidgetSnapshotContractTests.testCorruptPayloadReturnsNilInsteadOfCrashing
+WidgetSnapshotContractTests.testCurrentBlockFindsTheBlockInProgress
+WidgetSnapshotContractTests.testCurrentBlockIsNilInsideAGap
+WidgetSnapshotContractTests.testDurationMinutesIsNeverNegative
+WidgetSnapshotContractTests.testEmptySnapshotIsSafeToRender
+WidgetSnapshotContractTests.testMarkCompletedForAnUnknownTaskIsANoOp
+WidgetSnapshotContractTests.testMarkCompletedOnlyTouchesTheGivenTask
+WidgetSnapshotContractTests.testMarkCompletedRemovesTheBlockAndBanksItsMinutes
+WidgetSnapshotContractTests.testRemainingMinutesNeverGoesNegative
+WidgetSnapshotContractTests.testSnapshotSurvivesTheSharedStore
+WidgetSnapshotContractTests.testSnoozingShiftsAndPinsTheBlock
+WidgetSnapshotContractTests.testUpcomingBlocksAreFutureBlocksInOrder
 WorkingHoursTests.testDefaultWeekHasTheThreeWindowShapes
 WorkingHoursTests.testEveryDayHasTheEveningBlock
 WorkingHoursTests.testFridayToMondayIsCatchUpTime
@@ -41,14 +54,18 @@ WorkingHoursTests.testSaturdayMaterialisesCatchUpAndEvening
 WorkingHoursTests.testSummaryMentionsTheThreeShapes
 WorkingHoursTests.testTuesdayMaterialisesThreeWindowsIncludingEvening
 
-	 Executed 34 tests, with 0 failures (0 unexpected) in 0.025 (0.025) seconds
+	 Executed 47 tests, with 0 failures (0 unexpected) in 0.137 (0.137) seconds
 
 ================================================================================
-Proves: placement, deadline-first ordering, splitting, buffer/cap relaxation,
-pin immutability, determinism across 25 shuffled inputs, DST + timezone handling,
-and the working-hour rules of the owner's actual week.
+CadenceCore (34 tests): placement, deadline-first ordering, splitting, buffer/cap
+  relaxation, pin immutability, determinism across 25 shuffled inputs, DST +
+  timezone handling, and the working-hour rules of the owner's real week.
 
-Does NOT prove: SwiftUI / SwiftData / WidgetKit. Those frameworks exist only on
-Apple platforms — that layer is compiled by the macOS job in
+WidgetSnapshotContract (13 tests): the App Group contract between the app process
+  and the widget extension — round-trip, now/next lookups, exclusive block ends,
+  the optimistic complete/snooze patches, empty state, and surviving corrupt data.
+
+Does NOT cover: SwiftUI / SwiftData / WidgetKit / EventKit. Those frameworks exist
+only on Apple platforms — that layer is compiled by the macOS job in
 .github/workflows/ci.yml (or by Xcode on a Mac).
 ================================================================================

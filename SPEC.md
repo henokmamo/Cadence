@@ -456,12 +456,14 @@ UI compiles where the UI frameworks actually exist.
 
 | Layer | What it is | Built by | Verified in this repo |
 |---|---|---|---|
-| **CadenceCore** | Pure Foundation. The scheduling engine, recurrence maths, working-hours rules, formatting. Zero platform dependencies — no SwiftUI, no SwiftData, no UIKit. | `swift build` / `swift test` on Linux, macOS, or Windows | ✅ green: `swift build` clean, `swift test` = **34 tests, 0 failures** (`docs/engine-test-log.txt`) |
-| **Cadence** (app), **CadenceWidget**, **CadenceTests** | SwiftUI, SwiftData, WidgetKit, EventKit, App Intents | Xcode on macOS (`xcodebuild`), or the `ios-build` / `ios-tests` CI jobs | ⚠️ not compiled in this environment — no macOS/Xcode available. Syntax-checked only. |
+| **CadenceCore** | Pure Foundation. The scheduling engine, recurrence maths, working-hours rules, formatting. Zero platform dependencies — no SwiftUI, no SwiftData, no UIKit. | `swift build` / `swift test` on Linux, macOS, or Windows | ✅ green: `swift build` clean, `swift test` = **47 tests, 0 failures** (`docs/engine-test-log.txt`) |
+| **CadenceSharedContract** | The App Group snapshot: the JSON contract the widget reads and its buttons patch. Foundation-only. | `swift test` (same run as the core) | ✅ green: 13 behavioural tests, incl. corrupt-data survival |
+| **Preferences** | Settings bridged to the engine (`schedulingPolicy`, working windows). Foundation + Observation. | `swiftc -typecheck` anywhere | ✅ type-checks on Linux |
+| **Cadence** (app UI), **CadenceWidget** (UI), **CadenceTests** | SwiftUI, SwiftData, WidgetKit, EventKit, App Intents | Xcode on macOS (`xcodebuild`), or the `ios-build` / `ios-tests` CI jobs | ⚠️ not compiled in this environment — no macOS/Xcode available. Syntax-checked only. |
 
 ```bash
 # Engine tests — anywhere Swift 6 is installed (this is what CI runs first):
-swift test                       # 34 tests, ~0.3 s
+swift test                       # 47 tests, ~0.3 s
 
 # App + widget — needs macOS with Xcode 16:
 xcodebuild build -project Cadence.xcodeproj -scheme Cadence \
@@ -477,8 +479,12 @@ Windows-based owner: push the repo to GitHub and the Actions tab compiles the ap
 - The SwiftUI/SwiftData layer has **never been type-checked** — only parsed. Expect first-build
   fixups (missing imports, an API name or two). The engine underneath it is tested and stable.
 - The widget and App Intents mutate the App-Group snapshot and enqueue actions rather than opening
-  the SwiftData store directly (the widget process must not open the store); this path is designed
-  and documented but not runtime-proven until built on a device.
+  the SwiftData store directly (the widget process must not open the store). The **snapshot half of
+  that path is now tested** — 13 cases covering the round-trip, now/next lookups, exclusive block
+  ends, the optimistic complete/snooze patches and corrupt-data survival
+  (`CadenceTests/WidgetSnapshotContractTests.swift`, runs in CI on Linux). The remaining half —
+  an intent actually firing in the widget process and the app draining the queue on activation —
+  still needs a device or simulator.
 - Notifications, calendar import, and drag-to-pin all require a real device/simulator to exercise.
 - `prototype/cadence-prototype.html` is the behavioural reference for the engine: it is a
   self-contained page (no build step, no network) that mirrors §8.2 and is the fastest way to *feel*

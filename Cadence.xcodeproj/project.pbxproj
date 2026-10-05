@@ -13,11 +13,12 @@
 		0EFF5C139620D588B14C24E0 = {isa = PBXBuildFile; fileRef = 47D0E2C344A509B609EE5C85 /* sources */; };
 		0F3C9911E0DAD2525B333EE8 = {isa = PBXBuildFile; fileRef = 47D0E2C344A509B609EE5C85 /* sources */; };
 		11E7CE082C99C24B526C1FC3 = {isa = PBXBuildFile; fileRef = 59FC654A0734BFF545905E0C /* sources */; };
+		13F3B3EF480A02B63188C906 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WidgetSnapshotContractTests.swift"; sourceTree = "<group>"; };
 		156C3CED5A35367CDD252586 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RecurrenceRule.swift"; sourceTree = "<group>"; };
 		158C56F38813246B584DC3D6 = {isa = PBXGroup; children = (82460138068FBB23A8B7D1F5); name = "AppIntents"; path = "AppIntents"; sourceTree = "<group>"; };
 		1C1CF995170B8079C3E20B75 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SchedulingEngine.swift"; sourceTree = "<group>"; };
 		1DE9B2DD058CDF802C5E3E34 = {isa = PBXBuildFile; fileRef = 9B83B0256E6FACB03EBFEAAC /* sources */; };
-		1E0E2560143E321786505238 = {isa = PBXGroup; children = (521C4EBF3F99C8B93EADE38A); path = CadenceTests; sourceTree = "<group>"; };
+		1E0E2560143E321786505238 = {isa = PBXGroup; children = (521C4EBF3F99C8B93EADE38A, 13F3B3EF480A02B63188C906); path = CadenceTests; sourceTree = "<group>"; };
 		246C8B6717BBC56BC59A5B31 = {isa = PBXBuildFile; fileRef = F8059904BFA8EAE193F6D923 /* sources */; };
 		269673AF009DC1A6E839FDBF = {isa = PBXBuildFile; fileRef = 1C1CF995170B8079C3E20B75 /* sources */; };
 		2988F6220CBA389B4785AE00 = {isa = PBXBuildFile; fileRef = E0EB805F2B120048F3E63813 /* sources */; };
@@ -36,7 +37,7 @@
 		47D0E2C344A509B609EE5C85 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enums.swift"; sourceTree = "<group>"; };
 		47EE570114EA8DCC484559EF = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CadenceWidgetBundle.swift"; sourceTree = "<group>"; };
 		4DF115274D09C2C3815BBAF1 = {isa = PBXBuildFile; fileRef = 8D9E5EF55DC7E62A21645BA1 /* sources */; };
-		4F07A9361F831EF5BFA2199D = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (7095F8D4B42A3205480D6CDF, E1B2452597B2E4B3720A5CE6, 5A427CFF3DD3E1DFA8D81034, 82BB2F96601C0C682D97BC54); runOnlyForDeploymentPostprocessing = 0; };
+		4F07A9361F831EF5BFA2199D = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (7095F8D4B42A3205480D6CDF, E1B2452597B2E4B3720A5CE6, 5A427CFF3DD3E1DFA8D81034, 82BB2F96601C0C682D97BC54, E86A7F4BBDF5BDAD76BA6A00); runOnlyForDeploymentPostprocessing = 0; };
 		4F2AA7CA227E1854FEB1FEEE = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		4F2B64DB52313FF5F9126CAC = {isa = PBXBuildFile; fileRef = 2C598D8B3DB7B122F1133E9B /* sources */; };
 		4FE82D3EE518ACD2F0EFD938 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (4F2B64DB52313FF5F9126CAC, 0EFF5C139620D588B14C24E0, 3DF9EEB8CD75DCEFA19299BA, 920A69C39946FC91EEEAA1D5, D0F2195FFC533010D101C30D, 54903B56D7FF35878AB24656, A2F690680B0558465F09F40B, 65278CEDA087838251F76DEE, D57E435A65886103A05A2EAB, 041BEC20557473E434D57F67); runOnlyForDeploymentPostprocessing = 0; };
@@ -132,6 +133,7 @@
 		E49ABEAA48E56E5420EDE896 = {isa = PBXGroup; children = (5F620F3B2412CD7A17353504, E91089C1E3407501AB2EB846); name = "Scheduling"; path = "Scheduling"; sourceTree = "<group>"; };
 		E62CC372C6CD3550B8577123 = {isa = PBXBuildFile; fileRef = 8897BBEF03BB89C7DD482B19 /* sources */; };
 		E7242902B7C01FF23A2479FB = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SampleData.swift"; sourceTree = "<group>"; };
+		E86A7F4BBDF5BDAD76BA6A00 = {isa = PBXBuildFile; fileRef = 13F3B3EF480A02B63188C906 /* sources */; };
 		E91089C1E3407501AB2EB846 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ScheduleCoordinator.swift"; sourceTree = "<group>"; };
 		EAFC953E1C54CFB6D7337A26 = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "CadenceWidget.entitlements"; sourceTree = "<group>"; };
 		F1E4FBB15CFA478EBBB7D92F = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TaskItem.swift"; sourceTree = "<group>"; };

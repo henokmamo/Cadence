@@ -75,6 +75,24 @@ It shows exactly what the Actions page looks like at each stage. The short versi
    file**, type that path into the filename box, paste the contents of `ci.yml` from your download,
    and commit. That commit triggers the run.
 
+### Round 2: your run got to exit code **65** — real compile errors
+
+That is the *good* failure: the project file was read, Xcode started compiling, and it found one
+genuine mistake in the code — a `UUID` being assigned to a `String` in `CadenceShared/TaskIntents.swift`
+(`CompleteTaskIntent`'s convenience init; the identical init two structs down already did it right).
+Fixed, and I went looking for the rest of that class by hand:
+
+- every `UUID` ⇄ `String` boundary in the app and widget targets — audited, all consistent
+- every symbol I'd flagged as "never compiled" (31 of them) — all declared, no inventions
+- **and two of the files turned out to be Foundation-only**, so they now get genuinely
+  type-checked and *run* on Linux: `CadenceShared/WidgetSnapshot.swift` (the widget contract —
+  13 new tests) and `Cadence/Settings/Preferences.swift`
+
+`swift test` now runs **47 tests, 0 failures** (was 34). The widget contract tests cover the
+round-trip through the App Group, now/next lookups, exclusive block ends, the optimistic
+complete/snooze patches, and surviving corrupt data — the stuff that decides what your widget
+shows while the app isn't running.
+
 Timeline: run appears ~10 s · Linux job green ~1 min · macOS job queued 1–5 min then 3–5 min of
 building · app tests after that. Roughly **ten minutes end to end**, most of it waiting.
 

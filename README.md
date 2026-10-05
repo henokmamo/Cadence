@@ -8,7 +8,7 @@ you haven't started yet. Widgets let you complete or replan without opening the 
 
 - 📄 Product & architecture spec: **[SPEC.md](SPEC.md)**
 - 🍎 Real Xcode project: **`Cadence.xcodeproj`** (iOS 17+, SwiftUI, SwiftData, WidgetKit)
-- 🧠 Deterministic scheduling engine with a real test suite — and it's the part that's **already green**: `swift test` → 34 tests, 0 failures
+- 🧠 Deterministic scheduling engine with a real test suite — and it's the part that's **already green**: `swift test` → 47 tests, 0 failures
 - 🌐 Interactive prototype, no Xcode needed: **`prototype/cadence-prototype.html`**
 - 🤖 CI that compiles the app for you on GitHub's Macs: **`.github/workflows/ci.yml`**
 
@@ -88,11 +88,13 @@ Xcode only runs on macOS, so the code is split into two halves:
 | Half | Files | Needs | Command |
 |---|---|---|---|
 | **Engine** — scheduling, recurrence, working hours, formatting | `CadenceCore/` | Any Swift 6 toolchain (Linux, macOS, **Windows**) | `swift build` · `swift test` |
-| **App + widget** — SwiftUI, SwiftData, WidgetKit | `Cadence/`, `CadenceShared/`, `CadenceWidget/` | Xcode on macOS | `xcodebuild build` |
+| **Shared contract** — the App Group snapshot the widget reads | `CadenceShared/WidgetSnapshot.swift` | Any Swift 6 toolchain | included in `swift test` |
+| **Settings** — preferences bridged to the engine | `Cadence/Settings/Preferences.swift` | Any Swift 6 toolchain | `swiftc -typecheck` |
+| **App + widget UI** — SwiftUI, SwiftData, WidgetKit, EventKit | `Cadence/…`, `CadenceWidget/` | Xcode on macOS | `xcodebuild build` |
 
 ```bash
 # On Linux — verified green in this repo, ~3 seconds:
-swift test                       # → Executed 34 tests, with 0 failures
+swift test                       # → Executed 47 tests, with 0 failures
 
 # Syntax-check the Apple-only layer too (needs no frameworks, no Mac):
 tools/ParseAllSwift.sh           # → All 34 Swift files parse cleanly.
@@ -101,7 +103,10 @@ tools/ParseAllSwift.sh           # → All 34 Swift files parse cleanly.
 That suite is the honest heart of the product: if the engine places your work wrongly, no amount
 of pretty UI saves the app. It runs the algorithm against 20 engine cases, 8 working-hours cases
 (the actual default week, including the 20:00–23:00 window that every day gets) and 6 recurrence
-cases. `docs/engine-test-log.txt` is a captured run.
+cases — plus 13 tests of the **App Group contract** between the app and the widget (round-trip,
+now/next, the optimistic complete/snooze patches, corrupt-data survival). `docs/engine-test-log.txt`
+is a captured run. Anything tagged `[type-checked on Linux]` in this file is code the compiler has
+actually seen, not just parsed.
 
 **For the app itself, the Mac is on GitHub.** Push this repo to GitHub and `.github/workflows/ci.yml`
 does three things on every push: runs the engine tests on Ubuntu (fast), compiles the full app +
