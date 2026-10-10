@@ -22,6 +22,7 @@ struct CadenceApp: App {
 
     private let container: ModelContainer
 
+    @MainActor
     init() {
         let container = AppModelContainer.make()
         self.container = container
@@ -260,14 +261,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     }
 
     // Show banners even while the app is open — a block starting is useful in-app too.
-    func userNotificationCenter(
+    nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
         [.banner, .sound]
     }
 
-    func userNotificationCenter(
+    nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
