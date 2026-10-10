@@ -304,7 +304,7 @@ struct UpNextWidgetView: View {
         } else {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Coming up").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                ForEach(entry.snapshot.upcomingBlocks(after: entry.date).prefix(3)) { block in
+                ForEach(Array(entry.snapshot.upcomingBlocks(after: entry.date).prefix(3))) { block in
                     HStack(spacing: 8) {
                         RoundedRectangle(cornerRadius: 2)
                             .fill(Theme.accent)

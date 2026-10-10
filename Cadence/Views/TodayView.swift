@@ -131,7 +131,7 @@ struct TodayView: View {
                         tint: Theme.warning,
                         subtitle: "needs attention"
                     ) {
-                        ForEach(atRiskTasks.prefix(4)) { task in
+                        ForEach(Array(atRiskTasks.prefix(4))) { task in
                             AtRiskRow(task: task, now: now)
                         }
                     }

@@ -197,7 +197,7 @@ struct CalendarScreen: View {
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: Theme.Space.s) {
-                        ForEach(unscheduledTasks.prefix(12)) { task in
+                        ForEach(Array(unscheduledTasks.prefix(12))) { task in
                             Button {
                                 task.notBefore = now
                                 app.applyReschedule(reason: .taskChanged, now: now)
