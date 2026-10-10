@@ -124,17 +124,18 @@ final class AppEnvironment {
         let context = container.mainContext
         let preferences = Preferences()
         let calendarService = CalendarService()
-
-        self.preferences = preferences
-        self.calendarService = calendarService
-        self.coordinator = ScheduleCoordinator(
+        let localCoordinator = ScheduleCoordinator(
             context: context,
             preferences: preferences,
             calendarService: calendarService
         )
+
+        self.preferences = preferences
+        self.calendarService = calendarService
+        self.coordinator = localCoordinator
         self.actions = TaskActionService(
             context: context,
-            coordinator: coordinator,
+            coordinator: localCoordinator,
             preferences: preferences
         )
         AppEnvironment.current = self
@@ -274,10 +275,18 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     ) async {
         let userInfo = response.notification.request.content.userInfo
         let identifier = response.actionIdentifier
+        
+        var safeUserInfo: [String: String] = [:]
+        for (key, value) in userInfo {
+            if let k = key as? String, let v = value as? String {
+                safeUserInfo[k] = v
+            }
+        }
+        
         await MainActor.run {
             AppEnvironment.current?.actions.handleNotificationAction(
                 identifier: identifier,
-                userInfo: userInfo
+                userInfo: safeUserInfo
             )
         }
     }
