@@ -27,11 +27,11 @@ struct CalendarScreen: View {
     @State private var selectedBlock: TimeBlock?
 
     @Query(sort: [SortDescriptor(\TimeBlock.start)]) private var allBlocks: [TimeBlock]
-    @Query(
-        filter: #Predicate<TaskItem> { $0.statusRaw == "open" && $0.isSoftDeleted == false },
-        sort: [SortDescriptor(\TaskItem.createdAt)]
-    )
-    private var openTasks: [TaskItem]
+    @Query(sort: [SortDescriptor(\TaskItem.createdAt)]) private var allTasks: [TaskItem]
+
+    private var openTasks: [TaskItem] {
+        allTasks.filter { $0.statusRaw == "open" && !$0.isSoftDeleted }
+    }
 
     enum Mode: String, CaseIterable { case day = "Day", week = "Week" }
 

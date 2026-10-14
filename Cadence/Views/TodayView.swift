@@ -23,11 +23,12 @@ struct TodayView: View {
     @State private var quickEstimate = 30
     @FocusState private var quickFieldFocused: Bool
 
-    @Query(
-        filter: #Predicate<TaskItem> { $0.statusRaw == "open" && $0.isSoftDeleted == false },
-        sort: [SortDescriptor(\TaskItem.createdAt)]
-    )
-    private var openTasks: [TaskItem]
+    @Query(sort: [SortDescriptor(\TaskItem.createdAt)])
+    private var allTasks: [TaskItem]
+
+    private var openTasks: [TaskItem] {
+        allTasks.filter { $0.statusRaw == "open" && !$0.isSoftDeleted }
+    }
 
     @Query(sort: [SortDescriptor(\TimeBlock.start)])
     private var allBlocks: [TimeBlock]
