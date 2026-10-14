@@ -105,8 +105,13 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            COMPILER_INDEX_STORE_ENABLE=NO \
-            2>&1 | tail -60
+            2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" | tail -60 || {
+              echo ""
+              echo "==================== BUILD FAILED - COMPILATION ERRORS ===================="
+              grep -E "(: error:|BUILD FAILED|failed:)" -B 2 -A 3 "$RUNNER_TEMP/xcodebuild.log" || tail -200 "$RUNNER_TEMP/xcodebuild.log"
+              echo "==========================================================================="
+              exit 1
+            }
 
       - name: Package the built app
         run: |

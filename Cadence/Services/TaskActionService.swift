@@ -111,22 +111,22 @@ final class TaskActionService {
     }
 
     /// Handles notification actions delivered by the system.
-    func handleNotificationAction(identifier: String, userInfo: [AnyHashable: Any], now: Date = .now) {
+    func handleNotificationAction(identifier: String, userInfo: [String: String], now: Date = .now) {
         switch identifier {
         case "CADENCE_ACTION_COMPLETE":
-            if let raw = userInfo["taskID"] as? String, let id = UUID(uuidString: raw) {
+            if let raw = userInfo["taskID"], let id = UUID(uuidString: raw) {
                 complete(taskID: id, now: now)
             }
         case "CADENCE_ACTION_SNOOZE_15":
-            if let raw = userInfo["blockID"] as? String, let id = UUID(uuidString: raw) {
+            if let raw = userInfo["blockID"], let id = UUID(uuidString: raw) {
                 snooze(blockID: id, minutes: 15, now: now)
             }
-            if let raw = userInfo["taskID"] as? String, let id = UUID(uuidString: raw),
+            if let raw = userInfo["taskID"], let id = UUID(uuidString: raw),
                let task = task(withID: id) {
                 coordinator.snoozeCurrentBlock(of: task, minutes: 15, now: now)
             }
         case "CADENCE_ACTION_SKIP":
-            if let raw = userInfo["blockID"] as? String, let id = UUID(uuidString: raw) {
+            if let raw = userInfo["blockID"], let id = UUID(uuidString: raw) {
                 skip(blockID: id, now: now)
             }
         default:

@@ -22,11 +22,12 @@ struct CadenceApp: App {
 
     private let container: ModelContainer
 
-    @MainActor
     init() {
         let container = AppModelContainer.make()
         self.container = container
-        _environment = State(initialValue: AppEnvironment(container: container))
+        _environment = State(initialValue: MainActor.assumeIsolated {
+            AppEnvironment(container: container)
+        })
     }
 
     var body: some Scene {
