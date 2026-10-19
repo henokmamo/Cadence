@@ -20,6 +20,11 @@ struct TaskEditorView: View {
     let task: TaskItem?
     var presetList: TaskList?
 
+    init(task: TaskItem?, presetList: TaskList? = nil) {
+        self.task = task
+        self.presetList = presetList
+    }
+
     @State private var title = ""
     @State private var notes = ""
     @State private var estimateMinutes = 30
@@ -38,8 +43,14 @@ struct TaskEditorView: View {
     @State private var repeatWeekdays: Set<Int> = []
     @State private var repeatHasEnd = false
     @State private var repeatEnd = Date.now.addingTimeInterval(30 * 24 * 3600)
+    private struct SubtaskDraft: Identifiable {
+        var id: UUID = UUID()
+        var title: String
+        var isDone: Bool
+    }
+
     @State private var tagNames: [String] = []
-    @State private var subtasks: [(id: UUID, title: String, isDone: Bool)] = []
+    @State private var subtasks: [SubtaskDraft] = []
     @State private var newSubtaskTitle = ""
 
     @Query(sort: [SortDescriptor(\TaskList.sortIndex)]) private var lists: [TaskList]
@@ -213,7 +224,7 @@ struct TaskEditorView: View {
 
     private var subtasksSection: some View {
         Section("Subtasks") {
-            ForEach(subtasks, id: \.id) { item in
+            ForEach(subtasks) { item in
                 HStack(spacing: Theme.Space.s) {
                     Button {
                         toggleSubtask(item.id)
@@ -292,7 +303,7 @@ struct TaskEditorView: View {
         tagNames = task.tags.map(\.name)
         subtasks = task.subtasks
             .sorted { $0.sortIndex < $1.sortIndex }
-            .map { (id: $0.id, title: $0.title, isDone: $0.isDone) }
+            .map { SubtaskDraft(id: $0.id, title: $0.title, isDone: $0.isDone) }
     }
 
     private func save() {
@@ -384,7 +395,7 @@ struct TaskEditorView: View {
     private func addSubtask() {
         let trimmed = newSubtaskTitle.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        subtasks.append((id: UUID(), title: trimmed, isDone: false))
+        subtasks.append(SubtaskDraft(id: UUID(), title: trimmed, isDone: false))
         newSubtaskTitle = ""
     }
 
@@ -417,7 +428,7 @@ struct WeekdayPicker: View {
                             RoundedRectangle(cornerRadius: 7)
                                 .fill(selected.contains(day.index) ? Theme.accent : Color(.secondarySystemFill))
                         )
-                        .foregroundStyle(selected.contains(day.index) ? .white : .primary)
+                        .foregroundStyle(selected.contains(day.index) ? Color.white : Color.primary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(day.full)
@@ -433,6 +444,11 @@ struct FlowChips: View {
     let items: [String]
     @Binding var selected: [String]
     @State private var newTag = ""
+
+    init(items: [String], selected: Binding<[String]>) {
+        self.items = items
+        self._selected = selected
+    }
 
     private var allItems: [String] {
         var result = items

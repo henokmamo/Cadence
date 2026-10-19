@@ -15,6 +15,7 @@
 
 import SwiftUI
 import SwiftData
+import Combine
 
 struct CalendarScreen: View {
 
@@ -24,7 +25,9 @@ struct CalendarScreen: View {
     @State private var mode: Mode = .day
     @State private var anchorDate: Date = Calendar.current.startOfDay(for: .now)
     @State private var now = Date.now
-    @State private var selectedBlock: TimeBlock?
+    @State private var selectedBlock: TimeBlock? = nil
+
+    init() {}
 
     @Query(sort: [SortDescriptor(\TimeBlock.start)]) private var allBlocks: [TimeBlock]
     @Query(sort: [SortDescriptor(\TaskItem.createdAt)]) private var allTasks: [TaskItem]
@@ -230,6 +233,24 @@ private struct DayGrid: View {
     let onMove: (TimeBlock, Date, Int) -> Void
 
     @State private var dragState: DragState = .idle
+
+    init(
+        date: Date,
+        blocks: [TimeBlock],
+        hourHeight: CGFloat,
+        now: Date,
+        workingWindows: [WorkingWindow],
+        onSelect: @escaping (TimeBlock) -> Void,
+        onMove: @escaping (TimeBlock, Date, Int) -> Void
+    ) {
+        self.date = date
+        self.blocks = blocks
+        self.hourHeight = hourHeight
+        self.now = now
+        self.workingWindows = workingWindows
+        self.onSelect = onSelect
+        self.onMove = onMove
+    }
 
     private var calendar: Calendar { .current }
 
@@ -574,7 +595,7 @@ private struct WeekGrid: View {
                                 .foregroundStyle(.secondary)
                             Text(day.formatted(.dateTime.day()))
                                 .font(.callout.weight(calendar.isDate(day, inSameDayAs: now) ? .bold : .regular))
-                                .foregroundStyle(calendar.isDate(day, inSameDayAs: now) ? Theme.accent : .primary)
+                                .foregroundStyle(calendar.isDate(day, inSameDayAs: now) ? Theme.accent : Color.primary)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
@@ -671,6 +692,12 @@ struct BlockDetailSheet: View {
     let onClose: () -> Void
 
     @State private var showingEditor = false
+
+    init(block: TimeBlock, now: Date, onClose: @escaping () -> Void) {
+        self.block = block
+        self.now = now
+        self.onClose = onClose
+    }
 
     var body: some View {
         NavigationStack {
@@ -799,7 +826,7 @@ private struct UnscheduledCard: View {
             if let deadline = task.deadline {
                 Text("by \(RelativeDateFormatter.day(deadline))")
                     .font(.caption2)
-                    .foregroundStyle(task.isOverdue ? Theme.danger : .secondary)
+                    .foregroundStyle(task.isOverdue ? Theme.danger : Color.secondary)
             }
         }
         .frame(width: 132, alignment: .leading)

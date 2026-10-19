@@ -11,12 +11,17 @@
 
 import SwiftUI
 import SwiftData
+import Combine
 
 struct TodayView: View {
 
     @Environment(AppEnvironment.self) private var app
     @Environment(\.modelContext) private var context
     var onOpenCalendar: () -> Void = {}
+
+    init(onOpenCalendar: @escaping () -> Void = {}) {
+        self.onOpenCalendar = onOpenCalendar
+    }
 
     @State private var now = Date.now
     @State private var quickTitle = ""

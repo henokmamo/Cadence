@@ -17,9 +17,11 @@ struct TasksScreen: View {
 
     @State private var selection: TasksFilter = .today
     @State private var searchText = ""
-    @State private var editorTarget: EditorTarget?
+    @State private var editorTarget: EditorTarget? = nil
     @State private var editMode: EditMode = .inactive
     @State private var selectedTaskIDs: Set<UUID> = []
+
+    init() {}
 
     @Query(sort: [SortDescriptor(\TaskItem.createdAt)]) private var allTasks: [TaskItem]
     @Query(sort: [SortDescriptor(\TaskList.sortIndex)]) private var lists: [TaskList]
@@ -146,8 +148,8 @@ struct TasksScreen: View {
                     Image(systemName: "ellipsis.circle")
                 }
             }
-            if editMode == .active {
-                ToolbarItem(placement: .bottomBar) {
+            ToolbarItem(placement: .bottomBar) {
+                if editMode == .active {
                     bulkActions
                 }
             }

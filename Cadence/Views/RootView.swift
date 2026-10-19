@@ -9,6 +9,7 @@
 
 import SwiftUI
 import SwiftData
+import Combine
 
 enum AppTab: Hashable {
     case today, calendar, tasks, settings
@@ -23,9 +24,9 @@ struct RootView: View {
     @State private var selection: AppTab = .today
     @State private var showsOnboarding = false
 
-    var body: some View {
-        @Bindable var app = app
+    init() {}
 
+    var body: some View {
         TabView(selection: $selection) {
             NavigationStack {
                 TodayView(onOpenCalendar: { selection = .calendar })
@@ -156,6 +157,8 @@ struct OnboardingSheet: View {
 
     @State private var step: Int = 0
     @State private var requestingNotifications = false
+
+    init() {}
 
     var body: some View {
         VStack(spacing: Theme.Space.xl) {

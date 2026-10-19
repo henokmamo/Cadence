@@ -19,7 +19,7 @@ struct SettingsScreen: View {
 
     @State private var showingHoursEditor = false
     @State private var showingReschedulePreview = false
-    @State private var exportedURL: URL?
+    @State private var exportedURL: URL? = nil
     @State private var showingExport = false
     @State private var showingDeleteConfirm = false
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
@@ -27,8 +27,10 @@ struct SettingsScreen: View {
     @Query(sort: [SortDescriptor(\SchedulingLogEntry.placedAt, order: .reverse)])
     private var logEntries: [SchedulingLogEntry]
 
+    init() {}
+
     var body: some View {
-        @Bindable var prefs = app.preferences
+        let prefs = app.preferences
 
         Form {
             schedulingSection(prefs)
@@ -318,23 +320,25 @@ struct WorkingHoursEditor: View {
     @Environment(\.dismiss) private var dismiss
     @State private var windows: [WorkingWindow] = []
 
+    init() {}
+
     var body: some View {
         NavigationStack {
             List {
                 ForEach(RelativeDateFormatter.orderedWeekdaySymbols, id: \.index) { day in
                     Section(day.full) {
-                        let dayWindows = windows.enumerated().filter { $0.element.weekday == day.index + 1 }
+                        let dayWindows = windows.filter { $0.weekday == day.index + 1 }
                         if dayWindows.isEmpty {
                             Text("Closed").font(.caption).foregroundStyle(.secondary)
                         }
-                        ForEach(dayWindows, id: \.element.id) { pair in
+                        ForEach(dayWindows) { window in
                             HStack {
-                                TimeOfDayPicker(minutes: binding(for: pair.element.id, keyPath: \.startMinutes))
+                                TimeOfDayPicker(minutes: binding(for: window.id, keyPath: \.startMinutes))
                                 Text("–").foregroundStyle(.secondary)
-                                TimeOfDayPicker(minutes: binding(for: pair.element.id, keyPath: \.endMinutes))
+                                TimeOfDayPicker(minutes: binding(for: window.id, keyPath: \.endMinutes))
                                 Spacer()
                                 Button {
-                                    windows.removeAll { $0.id == pair.element.id }
+                                    windows.removeAll { $0.id == window.id }
                                 } label: {
                                     Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
                                 }
