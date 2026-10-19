@@ -286,12 +286,13 @@ final class ScheduleCoordinator {
     @discardableResult
     func complete(task: TaskItem, at date: Date = .now) -> CompletionOutcome {
         let futureBlocks = task.blocks
-            .filter { $0.end > date }
+            .filter { $0.end >= date }
             .sorted { $0.start < $1.start }
         let freedFrom: Date? = futureBlocks.first?.start
 
         task.markCompleted(date)
         for block in futureBlocks where block.isEngineOwned {
+            task.blocks.removeAll { $0.id == block.id }
             context.delete(block)
         }
 

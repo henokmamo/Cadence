@@ -78,6 +78,11 @@ enum RecurrenceFactory {
         )
         instance.notBefore = date
         instance.templateID = template.id
+        instance.repeatFrequencyRaw = template.repeatFrequencyRaw
+        instance.repeatInterval = template.repeatInterval
+        instance.repeatDaysOfWeekMask = template.repeatDaysOfWeekMask
+        instance.repeatEndDate = template.repeatEndDate
+        instance.repeatFromCompletion = template.repeatFromCompletion
         instance.tags = template.tags
         instance.subtasks = template.subtasks
             .sorted { $0.sortIndex < $1.sortIndex }
