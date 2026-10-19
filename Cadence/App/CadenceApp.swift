@@ -13,6 +13,7 @@ import SwiftUI
 import SwiftData
 import UIKit
 import BackgroundTasks
+import UserNotifications
 
 @main
 struct CadenceApp: App {

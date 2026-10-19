@@ -39,11 +39,11 @@ final class TaskModelTests: XCTestCase {
         return Preferences(store: UserDefaults(suiteName: suiteName)!)
     }
 
-    /// Mon–Fri 09:00–18:00 in a fixed timezone, starting "now" so the coordinator's
-    /// `now`-relative filtering behaves like production.
+    /// Every day 09:00–18:00 so tests behave identically regardless of which day of the
+    /// week CI runs on.
     private func makeCoordinator(preferences: Preferences) -> ScheduleCoordinator {
         var rules: [WorkingWindow] = []
-        for weekday in 2...6 {
+        for weekday in 1...7 {
             rules.append(WorkingWindow(weekday: weekday, startMinutes: 9 * 60, endMinutes: 18 * 60))
         }
         preferences.workingWindows = rules
